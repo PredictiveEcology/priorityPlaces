@@ -21,12 +21,12 @@ For help writing in R Markdown, see http://rmarkdown.rstudio.com/.
 # Usage
 
 ```{r module_usage}
-library(SpaDES.core)
+library(SpaDES)
 
-setPaths(modulePath = file.path("C:/Users/Tati/Documents/GitHub/priorityPlaces"))
+setPaths(modulePath = file.path(dirname(getwd())))
 getPaths() # shows where the 4 relevant paths are
 
-times <- list(start = 0, end = 10)
+times <- list(start = 0, end = 0)
 
 parameters <- list(
   #.progress = list(type = "text", interval = 1), # for a progress bar

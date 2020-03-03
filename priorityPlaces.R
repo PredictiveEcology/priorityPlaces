@@ -17,7 +17,7 @@ defineModule(sim, list(
   timeunit = "year",
   citation = list("citation.bib"),
   documentation = deparse(list("README.txt", "priorityPlaces.Rmd")),
-  reqdPkgs = list("raster", "data.table", "slam", "gurobi", "prioritizr"),
+  reqdPkgs = list("raster", "data.table", "slam", "prioritizr", "crayon"), #"gurobi", 
   parameters = rbind(
     defineParameter(".plotInitialTime", "numeric", end(sim), NA, NA,
                     "Describes the simulation time at which the first plot event should occur."),
@@ -34,7 +34,7 @@ defineModule(sim, list(
     defineParameter("targets", "numeric", 0.3, NA, NA,
                     paste0("create a problem with targets which specify that we need X% of each",
                           "feature. Can be one value, or exactly the length of the featureID's")),
-    defineParameter("penalty", "numeric", 5, NA, NA,
+    defineParameter("penalty", "numeric", NULL, NA, NA,
                     paste0("Penalties that favor combinations of planning units with", 
                           "high connectivity. The connectivity_matrix function will create a",
                           "matrix showing the average strength of connectivity between",
@@ -68,8 +68,9 @@ defineModule(sim, list(
     defineParameter("solutions", "numeric", 10, NA, NA,
                     paste0("integer number of attempts to generate different solutions. ",
                            "Defaults to 10")),
-    defineParameter("constraintType", "character", "", NA, NA, # CHECK HRE. NEED ANOTHER PARAMETER TO DEAL WITH ALL THESE OPTIONS
+    defineParameter("constraintType", "list", "", NA, NA,
                     paste0("Available types of constraints:",
+                           "lockedIn: ensure that certain planning units are prioritized in the solution",
                            "neighbor: guarantee a minimum size for each protected area",
                            "contiguity: make sure all units are contiguous",
                            "featureContiguity: make sure all units ",
@@ -77,6 +78,13 @@ defineModule(sim, list(
                            "lockedOut: can be used to lock areas out ",
                            "of the solution. Potentially for",
                            "scenario planning -- i.e. mining")),
+    defineParameter("constraintInformation", "list", "", NA, NA,
+                    paste0("Needed only for the specific constraints, NAMED with:",
+                           "lockedIn: numeric vector, matching the 'id' column from plannigUnit",
+                           "neighbor: numeric. Number of minimun neighbours",
+                           "contiguity: NULL",
+                           "featureContiguity: NULL ",
+                           "lockedOut: numeric vector, matching the 'id' column from plannigUnit ")),
     defineParameter("firstFeasible", "logical", FALSE, NA, NA,
                     paste0("logical should the first feasible solution be be returned? ",
                            "If firstFeasible is set to TRUE, the solver will return ",
@@ -89,7 +97,7 @@ defineModule(sim, list(
   inputObjects = bind_rows(
     expectsInput(objectName = "planningUnit", objectClass = "RasterLayer | data.frame", 
                  desc = paste0("Planning unit is the spatial area (study area) that should be", 
-                               "either a raster, shapefile or data.frame. If the last, calculations",
+                               "either a raster or data.frame. If the last, calculations",
                                " are faster. If the last, each row in the planning unit table must",
                                " correspond to a different planning unit. The table must also have ",
                                " an 'id' column to provide a unique integer identifier for each",
@@ -142,16 +150,140 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
   switch(
     eventType,
     init = {
-      ### check for more detailed object dependencies:
-      ### (use `checkObject` or similar)
+      # 1. Checking data: if rasters, need to match. If data frame, need to match with featuresData
+      if (is(sim$planningUnit, "RasterLayer")){
+        if (any(is(sim$featuresID, "RasterLayer"), is(sim$featuresID, "RasterStack"))){
+          # Make sure all layers match, if all raster layers
+          tryCatch({
+           rstStk <- raster::stack(sim$planningUnit,
+                                   sim$featuresID)
+           }, error = function(e){
+             message(crayon::red("The planningUnit raster's extent, alignment or projection does not match the featuresID raster. A postprocessing of planningUnit will be tried"))
+             sim$planningUnit <- reproducible::postProcess(sim$planningUnit, rasterToMatch = sim$featuresID[[1]], format = "GTiff", filename2 = NULL)
+           })
+          rstStk <- raster::stack(sim$planningUnit,
+                                  sim$featuresID)
+          if (any(is(rstStk, "RasterStack"),
+                  is(rstStk, "RasterBrick")))
+            isOK <- TRUE
+          if (!isTRUE(isOK))
+            stop("The rasters planningUnit and featuresID do not match even after post processing the first. Please make sure these rasters align and try again.")
+        } else {
+          # featureID is data.frame
+          if (!is(sim$featuresID, "data.frame")) {
+            stop("'featuresID' needs to be a raster, or data.frame. Shapefile not yet implemented in the SpaDES module")
+          }
+          # Check if the data.frame has 'id' column: unique identifier (i.e. matching 'species' in featuresData), and `name`"
+          if (!all(c("id", "name") %in% names(sim$featuresID))){
+            stop("'featuresID' data.frame needs to have both 'id' and 'name' columns")
+          }
+          # Then check if  featuresData has been supplied. If not, stop
+          if (is.null(sim$featuresData)){
+            stop("'featuresID' is supplied as data.frame it is necessary to supply 'featuresData' as well")
+          }
+          # If featuresData has been supplied, test it has the same NROW (id's) as the planning unit's ncell
+          if (NROW(sim$featuresData) != raster::ncell(sim$planningUnit))
+            stop("'planningUnit' number of cells and 'featuresData' number of rows need to match")
+          
+          # Then test the names of the data.frame contain: pu, species and amount
+          if (!all(c("pu", "species", "amount") %in% names(sim$featuresID)))
+            stop("'featuresData' data.frame needs to have: 'pu' (corresponding to 'id' in planningUnit), 
+                 'species' (corresponding to 'id' in featuresID) and 'amount' (numeric amount of the feature)")
+          
+          # Then test if species matches in sim$featuresData matches id in featuresID
+          id <- unique(sim$featuresID$id)
+          sp <- unique(sim$featuresData$species)
+          
+          if (!all(id %in% sp))
+            stop("'featuresID$id' needs to match 'featuresData$species'")
+        }
 
-      # do stuff for this event
-      # 1. Make sure all layers
-      # 2. Extract needed tables. This module should NOT have the option of working with rasters...
-      # 3. Add paramters to turn on and off each event! Use ifelse(P(sim)$addConstraints, start(sim), NA)
-      # 4. 
+      } else 
+        { # If the planningUnit is NOT a rasterLayer, we can have the features being a rasterLayer or data.frame.
+        if (!is(sim$planningUnit, "data.frame")) {
+          stop("'planningUnit' needs to be a raster, or data.frame. Shapefile not yet implemented in the SpaDES module")
+        }
+        # Check if the df has the needed columns
+        if (!all(c("id", "xloc", "yloc", "cost") %in% names(sim$planningUnit)))
+          stop("'featuresData' data.frame needs to have: 'id' (corresponding to the pixel/unit id), 
+               'xloc' and 'yloc' (corresponding to the spatial location) and 'cost' (numeric cost of implementation of conservation unit)")
+        
+        # Then check what is featuresID. If rasterLayer, check that it has the same ncell that NROW in the data.frame of pU
+        if (any(is(sim$featuresID, "RasterLayer"), is(sim$featuresID, "RasterStack"))){
+          if (raster::ncell(sim$featuresID) != NROW(sim$planningUnit))
+            stop("'featuresID' number of cells and 'planningUnit' number of rows must match")
+          
+          # Then check if  featuresData has been supplied. If not, stop
+          if (is.null(sim$featuresData)){
+            stop("'featuresID' is supplied as data.frame it is necessary to supply 'featuresData' as well")
+          }
 
+          # If featuresData has been supplied, test it has the same NROW (id's) as the planning unit df
+          if (NROW(sim$featuresData) != NROW(sim$planningUnit))
+            stop("'planningUnit' number of rows and 'featuresData' number of rows must match")
+
+        } else {
+          if (!is(sim$featuresID, "data.frame")) {
+            stop("'featuresID' needs to be a raster, or data.frame. Shapefile not yet implemented in the SpaDES module")
+          }
+          # If featuresID. is a data.frame, check for existing featuresData. If not, stop.
+          if (is.null(sim$featuresData)){
+            stop("'featuresID' is supplied as data.frame it is necessary to supply 'featuresData' as well")
+          }
+          
+          # If featuresData has been supplied, test it has the same NROW (id's) as the planning unit df
+          if (NROW(sim$featuresData) != NROW(sim$planningUnit))
+            stop("'planningUnit' number of rows and 'featuresData' number of rows must match")
+          
+          # If featuresData has been supplied, test it has the same id's as the planning unit
+          if (NROW(sim$featuresData) != NROW(sim$planningUnit))
+            stop("'planningUnit' number of rows and 'featuresData' number of rows need to match") 
+
+          # Then test if species matches in sim$featuresData matches id in featuresID
+          id <- unique(sim$featuresID$id)
+          sp <- unique(sim$featuresData$species)
+          
+          if (!all(id %in% sp))
+            stop("'featuresID$id' needs to match 'featuresData$species'")
+            
+            if (!all(c("pu", "species", "amount") %in% names(sim$featuresData)))
+              stop("'featuresData' data.frame needs to have: 'pu' (corresponding to 'id' in planningUnit), 
+                   'species' (corresponding to 'id' in featuresID) and 'amount' (numeric amount of the feature)")
+        }
+      }
+      
+      # if sim$planningUnit or sim$featuresID is a raster, needs to be extracted to a data.frame:
+      # 2a. Convert planningUnit raster to table:
+
+      xy <- coordinates(sim$planningUnit)
+      sim$planningUnit <- data.table(id = 1:ncell(sim$planningUnit), 
+                                            cost = raster::getValues(sim$planningUnit),
+                                            xloc = xy[,"x"],
+                                            yloc = xy[,"y"])
+      # 'id' column == pixel id
+      #  xloc, yloc == pixel location
+      #  cost == values
+
+      # 2b. Convert featuresID rasterStack to 2 tables: featuresID and featuresData:
+browser() # <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ HERE
+      #  featuresID:
+      #  'id' featureID == 'species' in featureData --> NUMERIC
+      #  'name' == layers names
+
+      #  featuresData: NROW --> pu * species(feature layers)
+      #  'pu' column == PU's 'id' == pixelID
+      #  'species' == featuresID numbers
+      #  'amount'
+        
+      sim$featuresID
+
+      sim$featuresData
+      
+      # 2. 
+      
+      
       # schedule future event(s)
+     # 3. Add paramters to turn on and off each event 
       sim <- scheduleEvent(sim, end(sim), "priorityPlaces", "createProblem")
       sim <- scheduleEvent(sim, end(sim), "priorityPlaces", "setObjectives")
       sim <- scheduleEvent(sim, end(sim), "priorityPlaces", "setTargets")
@@ -289,26 +421,31 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
 #   - keep event functions short and clean, modularize by calling subroutines from section below.
 
 .inputObjects <- function(sim) {
-  # Any code written here will be run during the simInit for the purpose of creating
-  # any objects required by this module and identified in the inputObjects element of defineModule.
-  # This is useful if there is something required before simulation to produce the module
-  # object dependencies, including such things as downloading default datasets, e.g.,
-  # downloadData("LCC2005", modulePath(sim)).
-  # Nothing should be created here that does not create a named object in inputObjects.
-  # Any other initiation procedures should be put in "init" eventType of the doEvent function.
-  # Note: the module developer can check if an object is 'suppliedElsewhere' to
-  # selectively skip unnecessary steps because the user has provided those inputObjects in the
-  # simInit call, or another module will supply or has supplied it. e.g.,
-  # if (!suppliedElsewhere('defaultColor', sim)) {
-  #   sim$map <- Cache(prepInputs, extractURL('map')) # download, extract, load file from url in sourceURL
-  # }
-
-  #cacheTags <- c(currentModule(sim), "function:.inputObjects") ## uncomment this if Cache is being used
+ 
+  cacheTags <- c(currentModule(sim), "function:.inputObjects") ## uncomment this if Cache is being used
   dPath <- asPath(getOption("reproducible.destinationPath", dataPath(sim)), 1)
   message(currentModule(sim), ": using dataPath '", dPath, "'.")
 
-  # ! ----- EDIT BELOW ----- ! #
-
-  # ! ----- STOP EDITING ----- ! #
+  if (!suppliedElsewhere("planningUnit", sim = sim)){
+    ras <- raster(ncol = 6, nrow = 6, xmn = -3, xmx = 3, ymn = -3, ymx = 3)
+    ras[] <- c(1:6, 10:15, 20:25, 30:35, 40:45, 50:55)
+    sim$planningUnit <- ras
+  }
+  
+  if (!suppliedElsewhere("featuresID", sim = sim)){
+    ras <- raster(ncol = 10, nrow = 10, xmn = -3, xmx = 3, ymn = -3, ymx = 3)
+    crs(ras) <- "+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"
+    ras  <- gaussMap(ras)
+    crs(ras) <- "+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"
+    names(ras) <- "species1"
+    ras2  <- gaussMap(ras)
+    crs(ras2) <- "+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"
+    names(ras2) <- "species2"
+    ras3  <- gaussMap(ras)
+    names(ras3) <- "species3"
+    crs(ras3) <- "+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"
+    sim$featuresID <- raster::stack(ras, ras2, ras3)
+  }
+  
   return(invisible(sim))
 }
