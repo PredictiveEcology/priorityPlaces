@@ -150,6 +150,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
   switch(
     eventType,
     init = {
+      
       # 1. Checking data: if rasters, need to match. If data frame, need to match with featuresData
       if (is(sim$planningUnit, "RasterLayer")){
         if (any(is(sim$featuresID, "RasterLayer"), is(sim$featuresID, "RasterStack"))){
@@ -158,8 +159,12 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
            rstStk <- raster::stack(sim$planningUnit,
                                    sim$featuresID)
            }, error = function(e){
-             message(crayon::red("The planningUnit raster's extent, alignment or projection does not match the featuresID raster. A postprocessing of planningUnit will be tried"))
-             sim$planningUnit <- reproducible::postProcess(sim$planningUnit, rasterToMatch = sim$featuresID[[1]], format = "GTiff", filename2 = NULL)
+             message(crayon::red(paste0("The planningUnit raster's extent, alignment or projection ",
+                                        "does not match the featuresID raster. A postprocessing of ",
+                                        "planningUnit will be tried")))
+             sim$planningUnit <- reproducible::postProcess(sim$planningUnit, 
+                                                           rasterToMatch = sim$featuresID[[1]], 
+                                                           format = "GTiff", filename2 = NULL)
            })
           rstStk <- raster::stack(sim$planningUnit,
                                   sim$featuresID)
@@ -167,7 +172,8 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                   is(rstStk, "RasterBrick")))
             isOK <- TRUE
           if (!isTRUE(isOK))
-            stop("The rasters planningUnit and featuresID do not match even after post processing the first. Please make sure these rasters align and try again.")
+            stop(paste0("The rasters planningUnit and featuresID do not match even after post ",
+                        "processing the first. Please make sure these rasters align and try again."))
         } else {
           # featureID is data.frame
           if (!is(sim$featuresID, "data.frame")) {
@@ -205,10 +211,12 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
         }
         # Check if the df has the needed columns
         if (!all(c("id", "xloc", "yloc", "cost") %in% names(sim$planningUnit)))
-          stop("'featuresData' data.frame needs to have: 'id' (corresponding to the pixel/unit id), 
-               'xloc' and 'yloc' (corresponding to the spatial location) and 'cost' (numeric cost of implementation of conservation unit)")
+          stop(paste0("'featuresData' data.frame needs to have: 'id' (corresponding to the ",
+                      "pixel/unit id), 'xloc' and 'yloc' (corresponding to the spatial location) ",
+                      "and 'cost' (numeric cost of implementation of conservation unit)"))
         
-        # Then check what is featuresID. If rasterLayer, check that it has the same ncell that NROW in the data.frame of pU
+        # Then check what is featuresID. If rasterLayer, check that it has the same ncell
+          # that NROW in the data.frame of pU
         if (any(is(sim$featuresID, "RasterLayer"), is(sim$featuresID, "RasterStack"))){
           if (raster::ncell(sim$featuresID) != NROW(sim$planningUnit))
             stop("'featuresID' number of cells and 'planningUnit' number of rows must match")
@@ -247,8 +255,9 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
             stop("'featuresID$id' needs to match 'featuresData$species'")
             
             if (!all(c("pu", "species", "amount") %in% names(sim$featuresData)))
-              stop("'featuresData' data.frame needs to have: 'pu' (corresponding to 'id' in planningUnit), 
-                   'species' (corresponding to 'id' in featuresID) and 'amount' (numeric amount of the feature)")
+              stop(paste0("'featuresData' data.frame needs to have: 'pu' (corresponding to 'id' in",
+                          " planningUnit), 'species' (corresponding to 'id' in featuresID) and ",
+                          "'amount' (numeric amount of the feature)"))
         }
       }
       
