@@ -17,7 +17,7 @@ defineModule(sim, list(
   timeunit = "year",
   citation = list("citation.bib"),
   documentation = deparse(list("README.txt", "priorityPlaces.Rmd")),
-  reqdPkgs = list("raster", "data.table", "slam", "prioritizr", "crayon", "gurobi", "parallel"), 
+  reqdPkgs = list("raster", "slam", "prioritizr", "crayon", "gurobi", "parallel"), 
   parameters = rbind(
     defineParameter(".plotInitialTime", "numeric", end(sim), NA, NA,
                     "Describes the simulation time at which the first plot event should occur."),
@@ -371,13 +371,14 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                            eventPriority = .last())
     },
     createProblem = {
-      sim$problemEnv <- new.env()
+      sim$problemEnv <- new.env(parent = emptyenv())
       if (P(sim)$fasterOptimization){
       assign("conservationProblem", value = problem(x = sim$planningUnit,
                                                     features = sim$featuresID,
                                                     rij = sim$featuresData,
                                                     cost_column = "cost"),
              envir = sim$problemEnv)
+
       } else {
         assign("conservationProblem", value = problem(x = sim$planningUnit,
                                                       features = sim$featuresID),
