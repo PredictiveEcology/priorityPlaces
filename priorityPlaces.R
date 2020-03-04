@@ -50,7 +50,20 @@ defineModule(sim, list(
                            "is less than the gap times the upper bound. For example, a value of ",
                            "0.01 will result in the", 
                            "optimizer stopping when the difference between the bounds is 1 percent ",
-                           "of the upper bound.")),
+                           "of the upper bound.")), 
+    defineParameter("binaryDecision", "logical", FALSE, NA, NA,
+                    paste0(" Add a binary decision to a conservation planning problem. This is the ",
+                           "classic decision of either prioritizing or not prioritizing a planning ",
+                           "unit. Typically, this decision has the assumed action of buying the ",
+                           "planning unit to include in a protected area network. If no decision is",
+                           " added to a problem object, then this decision class will be used by",
+                           " default.",
+                           " If FALSE, Add a proportion decision to a problem. This is a relaxed ",
+                           "decision where a part of a planning unit can be prioritized, as opposed ",
+                           "to the default of the entire planning unit. Typically, this decision has",
+                           " the assumed action of buying a fraction of a planning unit to include ",
+                           "in a protected area network. Generally, problems can be solved much ",
+                           "faster with proportion-type decisions than binary-type decisions.")),
     defineParameter("timeLimit", "numeric", 3600, NA, NA,
                     paste0("numeric time limit in seconds to run the optimizer. The solver will",
                            " return the current best solution when this time limit is exceeded.", 
@@ -65,7 +78,7 @@ defineModule(sim, list(
                            "to use for the optimization ",
                            "algorithm. The default 'AUTO' calculates the ideal number ", 
                            "of threads based on your system.")),
-    defineParameter("verbose", "logical", TRUE, NA, NA,
+    defineParameter("verbose", "logical", FALSE, NA, NA,
                     paste0("logical should information be printed while ",
                            "solving optimization problems?")),
     defineParameter("solutions", "numeric", 10, NA, NA,
@@ -408,6 +421,18 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     },
     definePenalties = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
+      tryCatch({
+        raster::stack(sim$planningUnitRaster, sim$importantAreas)
+      }, error = function(e){
+        message(crayon::red(paste0("The importantAreas raster's extent, alignment or projection ",
+                                   "does not match the planningUnitRaster. A postprocessing of ",
+                                   "importantAreas will be tried")))
+        sim$importantAreas <- Cache(reproducible::postProcess, sim$importantAreas, 
+                                  destinationPath = dataPath(sim),
+                                  rasterToMatch = sim$planningUnitRaster,
+                                  filename2 = NULL,
+                                  userTags = c("event:definePenalties", "goal:aligningIAandPUR"))
+      })
       assign("conservationProblem", value = add_boundary_penalties(conservationProblem, 
                                                         penalty = P(sim)$penalty,
                                                         data = connectivity_matrix(
@@ -417,9 +442,13 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       },
     defineDecisionType = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
-      assign("conservationProblem", value = add_binary_decisions(conservationProblem),
-             envir = sim$problemEnv)
-      #: each pixel can only be conserved or not. Possible to expand
+      if (P(sim)$binaryDecision){
+        assign("conservationProblem", value = add_binary_decisions(conservationProblem),
+               envir = sim$problemEnv)
+      } else {
+        assign("conservationProblem", value = add_proportion_decisions(conservationProblem),
+               envir = sim$problemEnv)
+      }
     },
     createPortfolio = {
       # There are various methods for constructing the solution pool, but in most cases, setting 
@@ -488,7 +517,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
   
   if (!suppliedElsewhere("planningUnitRaster", sim = sim)){
     if (!is(sim$planningUnit, "RasterLayer"))
-      stop(paste0("If planningUnit is NOT a RasterLayer, and penalty is not NULL",
+      stop(paste0("If planningUnit is NOT a RasterLayer ",
                   "you need to provide planningUnitRaster"))
     sim$planningUnitRaster <- sim$planningUnit
   }
