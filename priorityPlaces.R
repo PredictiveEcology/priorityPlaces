@@ -17,7 +17,7 @@ defineModule(sim, list(
   timeunit = "year",
   citation = list("citation.bib"),
   documentation = deparse(list("README.txt", "priorityPlaces.Rmd")),
-  reqdPkgs = list("raster", "slam", "prioritizr", "crayon", "gurobi", "parallel"), 
+  reqdPkgs = list("raster", "slam", "prioritizr", "crayon", "gurobi", "parallel"),
   parameters = rbind(
     defineParameter(".plotInitialTime", "numeric", end(sim), NA, NA,
                     "Describes the simulation time at which the first plot event should occur."),
@@ -38,7 +38,7 @@ defineModule(sim, list(
                     paste0("create a problem with targets which specify that we need X% of each",
                           "feature. Can be one value, or exactly the length of the featureID's")),
     defineParameter("penalty", "numeric", NULL, NA, NA,
-                    paste0("Penalties that favor combinations of planning units with", 
+                    paste0("Penalties that favor combinations of planning units with",
                           "high connectivity. The connectivity_matrix function will create a",
                           "matrix showing the average strength of connectivity between",
                           "adjacent planning units using the data in the input importantAreas")),
@@ -46,11 +46,11 @@ defineModule(sim, list(
                     paste0("numeric gap to optimality. This gap is relative when solving",
                            " problems using gurobi, and will cause ",
                            "the optimizer to terminate when the difference between the upper and",
-                           " lower objective function bounds", 
+                           " lower objective function bounds",
                            "is less than the gap times the upper bound. For example, a value of ",
-                           "0.01 will result in the", 
+                           "0.01 will result in the",
                            "optimizer stopping when the difference between the bounds is 1 percent ",
-                           "of the upper bound.")), 
+                           "of the upper bound.")),
     defineParameter("binaryDecision", "logical", FALSE, NA, NA,
                     paste0(" Add a binary decision to a conservation planning problem. This is the ",
                            "classic decision of either prioritizing or not prioritizing a planning ",
@@ -66,7 +66,7 @@ defineModule(sim, list(
                            "faster with proportion-type decisions than binary-type decisions.")),
     defineParameter("timeLimit", "numeric", 3600, NA, NA,
                     paste0("numeric time limit in seconds to run the optimizer. The solver will",
-                           " return the current best solution when this time limit is exceeded.", 
+                           " return the current best solution when this time limit is exceeded.",
                            "Default is one hour, 3600 seconds.")),
     defineParameter("presolve", "numeric", 2, NA, NA,
                     paste0("integer number indicating how intensively the solver should ",
@@ -76,7 +76,7 @@ defineModule(sim, list(
     defineParameter("threads", "numeric | character", "AUTO", NA, NA,
                     paste0("character string AUTO, or integer number of threads ",
                            "to use for the optimization ",
-                           "algorithm. The default 'AUTO' calculates the ideal number ", 
+                           "algorithm. The default 'AUTO' calculates the ideal number ",
                            "of threads based on your system.")),
     defineParameter("verbose", "logical", FALSE, NA, NA,
                     paste0("logical should information be printed while ",
@@ -106,77 +106,77 @@ defineModule(sim, list(
                            "to optimality. Defaults to FALSE."))
   ),
   inputObjects = bind_rows(
-    expectsInput(objectName = "planningUnit", objectClass = "RasterLayer | data.frame", 
-                 desc = paste0("Planning unit is the spatial area (study area) that should be", 
+    expectsInput(objectName = "planningUnit", objectClass = "RasterLayer | data.frame",
+                 desc = paste0("Planning unit is the spatial area (study area) that should be",
                                "either a raster or data.frame. If the last, calculations",
                                " are faster. If the last, each row in the planning unit table must",
                                " correspond to a different planning unit. The table must also have ",
                                " an 'id' column to provide a unique integer identifier for each",
                                " planning unit (i.e. pixelID -- used as `pu` in featuresData. see below),",
                                " and it must also have columns wit xloc, yloc, and one that",
-                               " indicates the cost of each planning unit ('cost'). If the first, the module", 
+                               " indicates the cost of each planning unit ('cost'). If the first, the module",
                                " will convert it to data.frame with the necessary adjustments"),
                  sourceURL = NA),
-    expectsInput(objectName = "featuresID", objectClass = "rasterStack | data.frame", 
+    expectsInput(objectName = "featuresID", objectClass = "rasterStack | data.frame",
                  desc = paste0("This is the rasterStack or relative data.frame of the features to be ",
                                "assessed: caribouRSF, specific birds density, species richness, etc",
-                               "If a data.frame, feature data must have an 'id' column containing ", 
-                               "a unique identifier (i.e. matching 'species' in featuresData), and `name`", 
+                               "If a data.frame, feature data must have an 'id' column containing ",
+                               "a unique identifier (i.e. matching 'species' in featuresData), and `name`",
                                " character name for each feature."),
                  sourceURL = NA),
-    expectsInput(objectName = "featuresData", objectClass = "data.frame", 
-                 desc = paste0("Only expected if featuresID is a data.frame. Has to have", 
-                               "'pu': integer planning unit identifier (corresponds to 'id' in", 
+    expectsInput(objectName = "featuresData", objectClass = "data.frame",
+                 desc = paste0("Only expected if featuresID is a data.frame. Has to have",
+                               "'pu': integer planning unit identifier (corresponds to 'id' in",
                                "planningUnit)",
                                "'species': integer feature identifier (i.e. 'id' in featuresID)",
                                "'amount': numeric amount of the feature in the planning unit (i.e.",
                                "RSF value, bird densisity or richness index)."),
                  sourceURL = NA),
-    expectsInput(objectName = "protectedAreas", objectClass = "RasterLayer | data.frame", 
+    expectsInput(objectName = "protectedAreas", objectClass = "RasterLayer | data.frame",
                  desc = paste0("Raster of protected areas, or table indicating which pixels from",
                                " planningUnit id correspond to protected areas. If raster, ",
                                "it will filter for non-na values (i.e. all but protected areas need",
                                "to be NA"),
                  sourceURL = NA),
-    expectsInput(objectName = "importantAreas", objectClass = "RasterLayer", 
+    expectsInput(objectName = "importantAreas", objectClass = "RasterLayer",
                  desc = paste0("Raster of areas that are of importance for one or more species, ",
                                "(i.e. coming from Indigenous knowldge)",
                                " planningUnit id correspond to penalize solutions that chose these",
                                "This will be filtered for non-na values (i.e. important are = 1,",
                                "non-important areas need to be 0"),
                  sourceURL = NA),
-    expectsInput(objectName = "planningUnitRaster", objectClass = "RasterLayer", 
+    expectsInput(objectName = "planningUnitRaster", objectClass = "RasterLayer",
                  desc = paste0("Raster of planning unit to be used to penalize solutions.")),
-    expectsInput(objectName = "problemEnv", objectClass = "environment", 
-                 desc = paste0("Environment to contain LP problem. The simList does not", 
+    expectsInput(objectName = "problemEnv", objectClass = "environment",
+                 desc = paste0("Environment to contain LP problem. The simList does not",
                                " support it"))
   ),
   outputObjects = bind_rows(
-    createsOutput(objectName = "planningUnit", objectClass = "data.frame", 
-                  desc = paste0("Planning unit is the spatial area (study area) that should be", 
+    createsOutput(objectName = "planningUnit", objectClass = "data.frame",
+                  desc = paste0("Planning unit is the spatial area (study area) that should be",
                                 "either a raster or data.frame. If the last, calculations",
                                 " are faster. If the last, each row in the planning unit table must",
                                 " correspond to a different planning unit. The table must also have ",
                                 " an 'id' column to provide a unique integer identifier for each",
                                 " planning unit (i.e. pixelID -- used as `pu` in featuresData. see below),",
                                 " and it must also have columns wit xloc, yloc, and one that",
-                                " indicates the cost of each planning unit ('cost'). If the first, the module", 
+                                " indicates the cost of each planning unit ('cost'). If the first, the module",
                                 " will convert it to data.frame with the necessary adjustments")),
-    createsOutput(objectName = "featuresID", objectClass = "data.frame", 
+    createsOutput(objectName = "featuresID", objectClass = "data.frame",
                   desc = paste0("This is the rasterStack or relative data.frame of the features to be ",
                                 "assessed: caribouRSF, specific birds density, species richness, etc",
-                                "If a data.frame, feature data must have an 'id' column containing ", 
-                                "a unique identifier (i.e. matching 'species' in featuresData), and `name`", 
+                                "If a data.frame, feature data must have an 'id' column containing ",
+                                "a unique identifier (i.e. matching 'species' in featuresData), and `name`",
                                 " character name for each feature.")),
-    createsOutput(objectName = "featuresData", objectClass = "data.frame", 
-                  desc = paste0("Only expected if featuresID is a data.frame. Has to have", 
-                                "'pu': integer planning unit identifier (corresponds to 'id' in", 
+    createsOutput(objectName = "featuresData", objectClass = "data.frame",
+                  desc = paste0("Only expected if featuresID is a data.frame. Has to have",
+                                "'pu': integer planning unit identifier (corresponds to 'id' in",
                                 "planningUnit)",
                                 "'species': integer feature identifier (i.e. 'id' in featuresID)",
                                 "'amount': numeric amount of the feature in the planning unit (i.e.",
                                 "RSF value, bird densisity or richness index).")),
-    createsOutput(objectName = "priorityAreas", objectClass = "list", 
-                  desc = paste0("List of raster layer showing which areas should be prioritized", 
+    createsOutput(objectName = "priorityAreas", objectClass = "list",
+                  desc = paste0("List of raster layer showing which areas should be prioritized",
                                 " showing optimal/near optimal areas"))
   )
 ))
@@ -188,19 +188,17 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
   switch(
     eventType,
     init = {
-      
       # 1. Checking data: if rasters, need to match. If data frame, need to match with featuresData
       if (is(sim$planningUnit, "RasterLayer")){
         if (any(is(sim$featuresID, "RasterLayer"), is(sim$featuresID, "RasterStack"))){
           # Make sure all layers match, if all raster layers
           tryCatch({
-           rstStk <- raster::stack(sim$planningUnit,
-                                   sim$featuresID)
+           rstStk <- raster::stack(sim$planningUnit, sim$featuresID)
            }, error = function(e){
              message(crayon::red(paste0("The planningUnit raster's extent, alignment or projection ",
                                         "does not match the featuresID raster. A postprocessing of ",
                                         "planningUnit will be tried")))
-             sim$planningUnit <- Cache(reproducible::postProcess, sim$planningUnit, 
+             sim$planningUnit <- Cache(reproducible::postProcess, sim$planningUnit,
                                        destinationPath = dataPath(sim),
                                        rasterToMatch = sim$featuresID[[1]],
                                        filename2 = NULL,
@@ -208,13 +206,12 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
            })
           rstStk <- raster::stack(sim$planningUnit,
                                   sim$featuresID)
-          if (any(is(rstStk, "RasterStack"),
-                  is(rstStk, "RasterBrick")))
+          if (any(is(rstStk, "RasterStack"), is(rstStk, "RasterBrick")))
             isOK <- TRUE
           if (!isTRUE(isOK))
             stop(paste0("The rasters planningUnit and featuresID do not match even after post ",
                         "processing the first. Please make sure these rasters align and try again."))
-        } else 
+        } else
           {
           # featureID is data.frame
           if (!is(sim$featuresID, "data.frame")) {
@@ -231,21 +228,21 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
           # If featuresData has been supplied, test it has the same NROW (id's) as the planning unit's ncell
           if (NROW(sim$featuresData) != raster::ncell(sim$planningUnit))
             stop("'planningUnit' number of cells and 'featuresData' number of rows need to match")
-          
+
           # Then test the names of the data.frame contain: pu, species and amount
           if (!all(c("pu", "species", "amount") %in% names(sim$featuresID)))
-            stop("'featuresData' data.frame needs to have: 'pu' (corresponding to 'id' in planningUnit), 
+            stop("'featuresData' data.frame needs to have: 'pu' (corresponding to 'id' in planningUnit),
                  'species' (corresponding to 'id' in featuresID) and 'amount' (numeric amount of the feature)")
-          
+
           # Then test if species matches in sim$featuresData matches id in featuresID
           id <- unique(sim$featuresID$id)
           sp <- unique(sim$featuresData$species)
-          
+
           if (!all(id %in% sp))
             stop("'featuresID$id' needs to match 'featuresData$species'")
         }
 
-      } else 
+      } else
         { # If the planningUnit is NOT a rasterLayer, we can have the features being a rasterLayer or data.frame.
         if (!is(sim$planningUnit, "data.frame")) {
           stop("'planningUnit' needs to be a raster, or data.frame. Shapefile not yet implemented in the SpaDES module")
@@ -255,13 +252,13 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
           stop(paste0("'featuresData' data.frame needs to have: 'id' (corresponding to the ",
                       "pixel/unit id), 'xloc' and 'yloc' (corresponding to the spatial location) ",
                       "and 'cost' (numeric cost of implementation of conservation unit)"))
-        
+
         # Then check what is featuresID. If rasterLayer, check that it has the same ncell
           # that NROW in the data.frame of pU
         if (any(is(sim$featuresID, "RasterLayer"), is(sim$featuresID, "RasterStack"))){
           if (raster::ncell(sim$featuresID) != NROW(sim$planningUnit))
             stop("'featuresID' number of cells and 'planningUnit' number of rows must match")
-          
+
           # Then check if  featuresData has been supplied. If not, stop
           if (is.null(sim$featuresData)){
             stop("'featuresID' is supplied as data.frame it is necessary to supply 'featuresData' as well")
@@ -279,29 +276,29 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
           if (is.null(sim$featuresData)){
             stop("'featuresID' is supplied as data.frame it is necessary to supply 'featuresData' as well")
           }
-          
+
           # If featuresData has been supplied, test it has the same NROW (id's) as the planning unit df
           if (NROW(sim$featuresData) != NROW(sim$planningUnit))
             stop("'planningUnit' number of rows and 'featuresData' number of rows must match")
-          
+
           # If featuresData has been supplied, test it has the same id's as the planning unit
           if (NROW(sim$featuresData) != NROW(sim$planningUnit))
-            stop("'planningUnit' number of rows and 'featuresData' number of rows need to match") 
+            stop("'planningUnit' number of rows and 'featuresData' number of rows need to match")
 
           # Then test if species matches in sim$featuresData matches id in featuresID
           id <- unique(sim$featuresID$id)
           sp <- unique(sim$featuresData$species)
-          
+
           if (!all(id %in% sp))
             stop("'featuresID$id' needs to match 'featuresData$species'")
-            
+
             if (!all(c("pu", "species", "amount") %in% names(sim$featuresData)))
               stop(paste0("'featuresData' data.frame needs to have: 'pu' (corresponding to 'id' in",
                           " planningUnit), 'species' (corresponding to 'id' in featuresID) and ",
                           "'amount' (numeric amount of the feature)"))
         }
       }
-      
+
       # 1b. If sim$planningUnit is a raster, and sim$planningUnitRaster is not matching it, overwrite
       tryCatch({
         raster::stack(sim$planningUnit, sim$planningUnitRaster)
@@ -310,23 +307,23 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                    "be replaced by the last")))
         sim$planningUnitRaster <- sim$planningUnit
       })
-      
+
       # if sim$planningUnit or sim$featuresID is a raster, needs to be extracted to a data.frame:
       # 2a. Convert planningUnit raster to table:
         # 'id' column == pixel id
         #  xloc, yloc == pixel location
         #  cost == values
 
-      if (P(sim)$fasterOptimization){
-        message(crayon::yellow(paste0("fasterOptimization is TRUE. Certain constratings ",
+      if (P(sim)$fasterOptimization) {
+        message(crayon::yellow(paste0("fasterOptimization is TRUE. Certain contraints ",
                                       "as contiguity and neighbor",
                                       "will be ignored if 'data' is not passed")))
         xy <- coordinates(sim$planningUnit)
         sim$planningUnit <- data.frame(id = 1:ncell(sim$planningUnit),
                                        cost = raster::getValues(sim$planningUnit),
-                                       xloc = xy[,"x"],
-                                       yloc = xy[,"y"])
-        
+                                       xloc = xy[, "x"],
+                                       yloc = xy[, "y"])
+
         # 2b. Convert featuresID rasterStack to 2 tables: featuresID and featuresData:
         #  featuresData:
         # NROW --> pu * species(feature layers)
@@ -340,21 +337,20 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
         names(amountTableMelted)[names(amountTableMelted) == "variable"] <- "species"
         names(amountTableMelted)[names(amountTableMelted) == "value"] <- "amount"
         sim$featuresData <- amountTableMelted
-        
+
         #  featuresID:
         #  'id' featureID == 'species' in featureData --> NUMERIC
         #  'name' == layers names
         sim$featuresID <- data.frame(name = names(sim$featuresID),
                                      id = 1:raster::nlayers(sim$featuresID))
-        
       }
 
       # Converting threads from AUTO to optimal number of threads:
       if (P(sim)$threads == "AUTO")
         params(sim)$priorityPlaces$threads <- floor(parallel::detectCores()*.9)
-      
+
       # schedule future event(s)
-     # 3. Add paramters to turn on and off each event 
+     # 3. Add paramters to turn on and off each event
       sim <- scheduleEvent(sim, end(sim), "priorityPlaces", "createProblem")
       sim <- scheduleEvent(sim, end(sim), "priorityPlaces", "setObjectives")
       sim <- scheduleEvent(sim, end(sim), "priorityPlaces", "setTargets")
@@ -386,23 +382,22 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       }
     },
     setObjectives = {
-      # Minimum set objective: Minimize the cost of the solution whilst ensuring 
-      # that all targets are met (Rodrigues et al. 2000). This objective is similar to that used in Marxan 
-      # (Ball et al. 2009). For example, we can add a minimum set objective to a problem using the 
+      # Minimum set objective: Minimize the cost of the solution whilst ensuring
+      # that all targets are met (Rodrigues et al. 2000). This objective is similar to that used in Marxan
+      # (Ball et al. 2009). For example, we can add a minimum set objective to a problem using the
       # following code. It is possible to add more objectives with time.
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
       assign("conservationProblem", value = add_min_set_objective(conservationProblem),
              envir = sim$problemEnv)
     },
     setTargets = {
-      
       # Rules/Targets:
       # create a problem with targets which specify that we need 10 % of the habitat
       # for the first feature, 15 % for the second feature, 20 % for the third feature
       # 25 % for the fourth feature and 30 % of the habitat for the fifth feature
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
-      assign("conservationProblem", value = add_relative_targets(conservationProblem, 
-                                                                 P(sim)$targets),
+      assign("conservationProblem",
+             value = add_relative_targets(conservationProblem, P(sim)$targets),
              envir = sim$problemEnv)
     },
     addConstraints = {
@@ -428,18 +423,18 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
         message(crayon::red(paste0("The importantAreas raster's extent, alignment or projection ",
                                    "does not match the planningUnitRaster. A postprocessing of ",
                                    "importantAreas will be tried")))
-        sim$importantAreas <- Cache(reproducible::postProcess, sim$importantAreas, 
-                                  destinationPath = dataPath(sim),
-                                  rasterToMatch = sim$planningUnitRaster,
-                                  filename2 = NULL,
-                                  userTags = c("event:definePenalties", "goal:aligningIAandPUR"))
+        sim$importantAreas <- Cache(reproducible::postProcess, sim$importantAreas,
+                                    destinationPath = dataPath(sim),
+                                    rasterToMatch = sim$planningUnitRaster,
+                                    filename2 = NULL,
+                                    userTags = c("event:definePenalties", "goal:aligningIAandPUR"))
       })
-      assign("conservationProblem", value = add_boundary_penalties(conservationProblem, 
-                                                        penalty = P(sim)$penalty,
-                                                        data = connectivity_matrix(
-                                                          sim$planningUnitRaster,
-                                                          sim$importantAreas)),
-             envir = sim$problemEnv)    
+      assign("conservationProblem",
+             value = add_boundary_penalties(conservationProblem,
+                                            penalty = P(sim)$penalty,
+                                            data = connectivity_matrix(sim$planningUnitRaster,
+                                                                       sim$importantAreas)),
+             envir = sim$problemEnv)
       },
     defineDecisionType = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
@@ -452,36 +447,39 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       }
     },
     createPortfolio = {
-      # There are various methods for constructing the solution pool, but in most cases, setting 
-      # the method argument to 2 is recommended because this will mean that the solution pool will 
+      # There are various methods for constructing the solution pool, but in most cases, setting
+      # the method argument to 2 is recommended because this will mean that the solution pool will
       # contain a set number of solutions that are nearest to optimality (e.g. the top 10 solutions
-      # nearest to optimality). This method is the fastest for generating a portfolio of solutions, 
+      # nearest to optimality). This method is the fastest for generating a portfolio of solutions,
       # but it requires that the Gurobi optimization solver to be specified for solving problems.
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
-      assign("conservationProblem", value = add_pool_portfolio(conservationProblem, 
-                                                    method = 2, 
-                                                    number_solutions = P(sim)$solutions),
+      assign("conservationProblem", value = add_pool_portfolio(conservationProblem,
+                                                               method = 2,
+                                                               number_solutions = P(sim)$solutions),
              envir = sim$problemEnv)
     },
     initializeSolver = {
-      conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
-      assign("conservationProblem", value = add_gurobi_solver(conservationProblem, 
-                                                   gap = P(sim)$gap,
-                                                   time_limit = P(sim)$timeLimit,
-                                                   presolve = P(sim)$presolve, 
-                                                   threads = P(sim)$threads, 
-                                                   first_feasible = P(sim)$firstFeasible, 
-                                                   verbose = P(sim)$verbose),
-             envir = sim$problemEnv)
+      useGurobi <- TRUE ## TODO: test if gurobi on the system
+      if (isTRUE(useGurobi)) {
+        conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
+        assign("conservationProblem", value = add_gurobi_solver(conservationProblem,
+                                                                gap = P(sim)$gap,
+                                                                time_limit = P(sim)$timeLimit,
+                                                                presolve = P(sim)$presolve,
+                                                                threads = P(sim)$threads,
+                                                                first_feasible = P(sim)$firstFeasible,
+                                                                verbose = P(sim)$verbose),
+               envir = sim$problemEnv)
+      }
     },
     definePriorityPlaces = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
       sim$priorityAreas <- prioritizr::solve(conservationProblem)
-      solutionsVector <- names(sim$priorityAreas)[grep(names(sim$priorityAreas), 
+      solutionsVector <- names(sim$priorityAreas)[grep(names(sim$priorityAreas),
                                                        pattern = "solution")]
       priorityAreasList <- lapply(solutionsVector, function(solutionNumber){
         if (P(sim)$fasterOptimization){
-          rasSolution <- setValues(x = sim$planningUnitRaster, 
+          rasSolution <- setValues(x = sim$planningUnitRaster,
                                    values = sim$priorityAreas[[solutionNumber]])
         } else {
           rasSolution <- sim$priorityAreas[[solutionNumber]]
@@ -505,7 +503,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
 #   - keep event functions short and clean, modularize by calling subroutines from section below.
 
 .inputObjects <- function(sim) {
- 
+
   cacheTags <- c(currentModule(sim), "function:.inputObjects") ## uncomment this if Cache is being used
   dPath <- asPath(getOption("reproducible.destinationPath", dataPath(sim)), 1)
   message(currentModule(sim), ": using dataPath '", dPath, "'.")
@@ -515,18 +513,18 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     ras[] <- c(1:6, 10:15, 20:25, 30:35, 40:45, 50:55)
     sim$planningUnit <- ras
   }
-  
+
   if (!suppliedElsewhere("planningUnitRaster", sim = sim)){
     if (!is(sim$planningUnit, "RasterLayer"))
       stop(paste0("If planningUnit is NOT a RasterLayer ",
                   "you need to provide planningUnitRaster"))
     sim$planningUnitRaster <- sim$planningUnit
   }
-  
+
   if (!is.null(P(sim)$penalty)){
     if (!suppliedElsewhere("importantAreas", sim = sim)){
       if (!is(sim$planningUnitRaster, "RasterLayer"))
-        stop(paste0("If planningUnitRaster is NULL, or not a RasterLayer, and penalty is not NULL ", 
+        stop(paste0("If planningUnitRaster is NULL, or not a RasterLayer, and penalty is not NULL ",
                     "you need to provide importantAreas"))
       sim$importantAreas <- sim$planningUnitRaster
       sim$importantAreas[] <- NA
@@ -547,6 +545,6 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     crs(ras3) <- "+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"
     sim$featuresID <- raster::stack(ras, ras2, ras3)
   }
-  
+
   return(invisible(sim))
 }

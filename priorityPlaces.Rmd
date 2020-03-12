@@ -1,6 +1,6 @@
 ---
 title: "priorityPlaces"
-author: ""
+author: "Tati Micheltti and Alex Chubaty"
 date: "28 February 2020"
 output: pdf_document
 ---
@@ -33,12 +33,11 @@ parameters <- list(
                         "fasterOptimization" = FALSE,
                         "targets" = c(0.35, 0.1, 0.2),
                         "binaryDecision" = FALSE,
-                        "constraintType" = list(add_locked_in_constraints = list(locked_in = c(50, 53, 
-                                                                                               52, 51)),
-                                                # add_feature_contiguity_constraints = NULL,
-                                                # add_neighbor_constraints = list(k = 2),
-                                                add_locked_out_constraints = list(locked_out = c(3, 4, 
-                                                                                               13, 14))),
+                        "constraintType" = list(
+                          add_locked_in_constraints = list(locked_in = c(50, 53,  52, 51)),
+                          # add_feature_contiguity_constraints = NULL,
+                          # add_neighbor_constraints = list(k = 2),
+                          add_locked_out_constraints = list(locked_out = c(3, 4, 13, 14))),
                         "penalty" = 0.1,
                         "firstFeasible" = FALSE)
 )
@@ -48,8 +47,7 @@ objects <- list()
 inputs <- list()
 outputs <- list()
 
-mySim <- simInitAndSpades(times = times, params = parameters, modules = modules,
-                 objects = objects)
+mySim <- simInitAndSpades(times = times, params = parameters, modules = modules, objects = objects)
 
 ```
 
