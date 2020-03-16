@@ -188,37 +188,58 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
   switch(
     eventType,
     init = {
+
+      # schedule future event(s)
+     # 3. Add paramters to turn on and off each event
+      sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "dataSanityCheck")
+      sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "createProblem")
+      sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "setObjectives")
+      sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "setTargets")
+      if (any(P(sim)$constraintType != ""))
+        sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "addConstraints")
+      if (!is.null(P(sim)$penalty))
+        sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "definePenalties")
+      sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "defineDecisionType")
+      sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "createPortfolio")
+      sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "initializeSolver")
+      sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "definePriorityPlaces",
+                           eventPriority = .last())
+      sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "priorityPlaces", "plot",
+                           eventPriority = .last())
+    },
+    dataSanityCheck = {
       # 1. Checking data: if rasters, need to match. If data frame, need to match with featuresData
       if (is(sim$planningUnit, "RasterLayer")){
-        if (any(is(sim$featuresID, "RasterLayer"), is(sim$featuresID, "RasterStack"))){
+        if (any(is(sim$featuresID[[paste0("Year", time(sim))]][[1]], "RasterLayer"), 
+                is(sim$featuresID[[paste0("Year", time(sim))]][[1]], "RasterStack"))){
           # Make sure all layers match, if all raster layers
           tryCatch({
-           rstStk <- raster::stack(sim$planningUnit, sim$featuresID)
-           }, error = function(e){
-             message(crayon::red(paste0("The planningUnit raster's extent, alignment or projection ",
-                                        "does not match the featuresID raster. A postprocessing of ",
-                                        "planningUnit will be tried")))
-             sim$planningUnit <- Cache(reproducible::postProcess, sim$planningUnit,
-                                       destinationPath = dataPath(sim),
-                                       rasterToMatch = sim$featuresID[[1]],
-                                       filename2 = NULL,
-                                       userTags = c("init", "goal:aligningPUandFID"))
-           })
+            rstStk <- raster::stack(sim$planningUnit, sim$featuresID[[paste0("Year", time(sim))]])
+          }, error = function(e){
+            message(crayon::red(paste0("The planningUnit raster's extent, alignment or projection ",
+                                       "does not match the featuresID raster. A postprocessing of ",
+                                       "planningUnit will be tried")))
+            sim$planningUnit <- Cache(reproducible::postProcess, sim$planningUnit,
+                                      destinationPath = dataPath(sim),
+                                      rasterToMatch = sim$featuresID[[paste0("Year", time(sim))]][[1]],
+                                      filename2 = NULL,
+                                      userTags = c("init", "goal:aligningPUandFID"))
+          })
           rstStk <- raster::stack(sim$planningUnit,
-                                  sim$featuresID)
+                                  sim$featuresID[[paste0("Year", time(sim))]])
           if (any(is(rstStk, "RasterStack"), is(rstStk, "RasterBrick")))
             isOK <- TRUE
           if (!isTRUE(isOK))
             stop(paste0("The rasters planningUnit and featuresID do not match even after post ",
                         "processing the first. Please make sure these rasters align and try again."))
         } else
-          {
+        {
           # featureID is data.frame
-          if (!is(sim$featuresID, "data.frame")) {
+          if (!is(sim$featuresID[[paste0("Year", time(sim))]], "data.frame")) {
             stop("'featuresID' needs to be a raster, or data.frame. Shapefile not yet implemented in the SpaDES module")
           }
           # Check if the data.frame has 'id' column: unique identifier (i.e. matching 'species' in featuresData), and `name`"
-          if (!all(c("id", "name") %in% names(sim$featuresID))){
+          if (!all(c("id", "name") %in% names(sim$featuresID[[paste0("Year", time(sim))]]))){
             stop("'featuresID' data.frame needs to have both 'id' and 'name' columns")
           }
           # Then check if  featuresData has been supplied. If not, stop
@@ -228,77 +249,78 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
           # If featuresData has been supplied, test it has the same NROW (id's) as the planning unit's ncell
           if (NROW(sim$featuresData) != raster::ncell(sim$planningUnit))
             stop("'planningUnit' number of cells and 'featuresData' number of rows need to match")
-
+          
           # Then test the names of the data.frame contain: pu, species and amount
-          if (!all(c("pu", "species", "amount") %in% names(sim$featuresID)))
+          if (!all(c("pu", "species", "amount") %in% names(sim$featuresID[[paste0("Year", time(sim))]])))
             stop("'featuresData' data.frame needs to have: 'pu' (corresponding to 'id' in planningUnit),
                  'species' (corresponding to 'id' in featuresID) and 'amount' (numeric amount of the feature)")
-
+          
           # Then test if species matches in sim$featuresData matches id in featuresID
-          id <- unique(sim$featuresID$id)
+          id <- unique(sim$featuresID[[paste0("Year", time(sim))]]$id)
           sp <- unique(sim$featuresData$species)
-
+          
           if (!all(id %in% sp))
             stop("'featuresID$id' needs to match 'featuresData$species'")
         }
-
-      } else
-        { # If the planningUnit is NOT a rasterLayer, we can have the features being a rasterLayer or data.frame.
+        
+      } else { # If the planningUnit is NOT a rasterLayer, we can have the features being a rasterLayer or data.frame.
         if (!is(sim$planningUnit, "data.frame")) {
-          stop("'planningUnit' needs to be a raster, or data.frame. Shapefile not yet implemented in the SpaDES module")
+          stop(paste0("'planningUnit' needs to be a raster, or data.frame. Shapefiles or other formats ",
+               "not yet implemented in the SpaDES module"))
         }
         # Check if the df has the needed columns
         if (!all(c("id", "xloc", "yloc", "cost") %in% names(sim$planningUnit)))
           stop(paste0("'featuresData' data.frame needs to have: 'id' (corresponding to the ",
                       "pixel/unit id), 'xloc' and 'yloc' (corresponding to the spatial location) ",
                       "and 'cost' (numeric cost of implementation of conservation unit)"))
-
+        
         # Then check what is featuresID. If rasterLayer, check that it has the same ncell
-          # that NROW in the data.frame of pU
-        if (any(is(sim$featuresID, "RasterLayer"), is(sim$featuresID, "RasterStack"))){
-          if (raster::ncell(sim$featuresID) != NROW(sim$planningUnit))
+        # that NROW in the data.frame of pU
+        if (any(is(sim$featuresID[[paste0("Year", time(sim))]], "RasterLayer"), 
+                is(sim$featuresID[[paste0("Year", time(sim))]], "RasterStack"))){
+          if (raster::ncell(sim$featuresID[[paste0("Year", time(sim))]]) != NROW(sim$planningUnit))
             stop("'featuresID' number of cells and 'planningUnit' number of rows must match")
-
+          
           # Then check if  featuresData has been supplied. If not, stop
           if (is.null(sim$featuresData)){
             stop("'featuresID' is supplied as data.frame it is necessary to supply 'featuresData' as well")
           }
-
+          
           # If featuresData has been supplied, test it has the same NROW (id's) as the planning unit df
           if (NROW(sim$featuresData) != NROW(sim$planningUnit))
             stop("'planningUnit' number of rows and 'featuresData' number of rows must match")
-
+          
         } else {
-          if (!is(sim$featuresID, "data.frame")) {
+          if (!is(sim$featuresID[[paste0("Year", time(sim))]], "data.frame")) {
             stop("'featuresID' needs to be a raster, or data.frame. Shapefile not yet implemented in the SpaDES module")
           }
           # If featuresID. is a data.frame, check for existing featuresData. If not, stop.
           if (is.null(sim$featuresData)){
             stop("'featuresID' is supplied as data.frame it is necessary to supply 'featuresData' as well")
           }
-
+          
           # If featuresData has been supplied, test it has the same NROW (id's) as the planning unit df
           if (NROW(sim$featuresData) != NROW(sim$planningUnit))
             stop("'planningUnit' number of rows and 'featuresData' number of rows must match")
-
+          
           # If featuresData has been supplied, test it has the same id's as the planning unit
           if (NROW(sim$featuresData) != NROW(sim$planningUnit))
             stop("'planningUnit' number of rows and 'featuresData' number of rows need to match")
-
+          
           # Then test if species matches in sim$featuresData matches id in featuresID
-          id <- unique(sim$featuresID$id)
+          id <- unique(sim$featuresID[[paste0("Year", time(sim))]]$id)
           sp <- unique(sim$featuresData$species)
-
+          
           if (!all(id %in% sp))
             stop("'featuresID$id' needs to match 'featuresData$species'")
-
-            if (!all(c("pu", "species", "amount") %in% names(sim$featuresData)))
-              stop(paste0("'featuresData' data.frame needs to have: 'pu' (corresponding to 'id' in",
-                          " planningUnit), 'species' (corresponding to 'id' in featuresID) and ",
-                          "'amount' (numeric amount of the feature)"))
+          
+          if (!all(c("pu", "species", "amount") %in% names(sim$featuresData)))
+            stop(paste0("'featuresData' data.frame needs to have: 'pu' (corresponding to 'id' in",
+                        " planningUnit), 'species' (corresponding to 'id' in featuresID) and ",
+                        "'amount' (numeric amount of the feature)"))
         }
       }
-
+      
       # 1b. If sim$planningUnit is a raster, and sim$planningUnitRaster is not matching it, overwrite
       tryCatch({
         raster::stack(sim$planningUnit, sim$planningUnitRaster)
@@ -307,13 +329,13 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                    "be replaced by the last")))
         sim$planningUnitRaster <- sim$planningUnit
       })
-
+      
       # if sim$planningUnit or sim$featuresID is a raster, needs to be extracted to a data.frame:
       # 2a. Convert planningUnit raster to table:
-        # 'id' column == pixel id
-        #  xloc, yloc == pixel location
-        #  cost == values
-
+      # 'id' column == pixel id
+      #  xloc, yloc == pixel location
+      #  cost == values
+      
       if (P(sim)$fasterOptimization) {
         message(crayon::yellow(paste0("fasterOptimization is TRUE. Certain contraints ",
                                       "as contiguity and neighbor",
@@ -323,61 +345,46 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                        cost = raster::getValues(sim$planningUnit),
                                        xloc = xy[, "x"],
                                        yloc = xy[, "y"])
-
+        
         # 2b. Convert featuresID rasterStack to 2 tables: featuresID and featuresData:
         #  featuresData:
         # NROW --> pu * species(feature layers)
         #  'pu' column == PU's 'id' == pixelID
         #  'species' == featuresID numbers
         #  'amount'
-        amountTable <- data.frame(pu = 1:ncell(sim$featuresID), getValues(sim$featuresID))
-        names(amountTable) <- c("pu", 1:raster::nlayers(sim$featuresID))
+        amountTable <- data.frame(pu = 1:ncell(sim$featuresID[[paste0("Year", time(sim))]]), 
+                                  getValues(sim$featuresID[[paste0("Year", time(sim))]]))
+        names(amountTable) <- c("pu", 1:raster::nlayers(sim$featuresID[[paste0("Year", time(sim))]]))
         amountTableMelted <- reshape2::melt(amountTable, id.vars = "pu")
         amountTableMelted[["variable"]] <- as.numeric(amountTableMelted[["variable"]])
         names(amountTableMelted)[names(amountTableMelted) == "variable"] <- "species"
         names(amountTableMelted)[names(amountTableMelted) == "value"] <- "amount"
         sim$featuresData <- amountTableMelted
-
+        sim$featuresData$amount[is.na(sim$featuresData$amount)] <- 0 # Amount can't be 0, so we convert NA's into 0's
         #  featuresID:
         #  'id' featureID == 'species' in featureData --> NUMERIC
         #  'name' == layers names
-        sim$featuresID <- data.frame(name = names(sim$featuresID),
-                                     id = 1:raster::nlayers(sim$featuresID))
+        sim$featuresID[[paste0("Year", time(sim))]] <- data.frame(name = names(sim$featuresID[[paste0("Year", time(sim))]]),
+                                     id = 1:raster::nlayers(sim$featuresID[[paste0("Year", time(sim))]]))
       }
-
+      
       # Converting threads from AUTO to optimal number of threads:
       if (P(sim)$threads == "AUTO")
         params(sim)$priorityPlaces$threads <- floor(parallel::detectCores()*.9)
-
-      # schedule future event(s)
-     # 3. Add paramters to turn on and off each event
-      sim <- scheduleEvent(sim, end(sim), "priorityPlaces", "createProblem")
-      sim <- scheduleEvent(sim, end(sim), "priorityPlaces", "setObjectives")
-      sim <- scheduleEvent(sim, end(sim), "priorityPlaces", "setTargets")
-      if (any(P(sim)$constraintType != ""))
-        sim <- scheduleEvent(sim, end(sim), "priorityPlaces", "addConstraints")
-      if (!is.null(P(sim)$penalty))
-        sim <- scheduleEvent(sim, end(sim), "priorityPlaces", "definePenalties")
-      sim <- scheduleEvent(sim, end(sim), "priorityPlaces", "defineDecisionType")
-      sim <- scheduleEvent(sim, end(sim), "priorityPlaces", "createPortfolio")
-      sim <- scheduleEvent(sim, end(sim), "priorityPlaces", "initializeSolver")
-      sim <- scheduleEvent(sim, end(sim), "priorityPlaces", "definePriorityPlaces",
-                           eventPriority = .last())
-      sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "priorityPlaces", "plot",
-                           eventPriority = .last())
-    },
+      
+            },
     createProblem = {
       sim$problemEnv <- new.env(parent = emptyenv())
       if (P(sim)$fasterOptimization){
       assign("conservationProblem", value = problem(x = sim$planningUnit,
-                                                    features = sim$featuresID,
+                                                    features = sim$featuresID[[paste0("Year", time(sim))]],
                                                     rij = sim$featuresData,
                                                     cost_column = "cost"),
              envir = sim$problemEnv)
 
       } else {
         assign("conservationProblem", value = problem(x = sim$planningUnit,
-                                                      features = sim$featuresID),
+                                                      features = sim$featuresID[[paste0("Year", time(sim))]]),
                envir = sim$problemEnv)
       }
     },
@@ -465,7 +472,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
         assign("conservationProblem", value = add_gurobi_solver(conservationProblem,
                                                                 gap = P(sim)$gap,
                                                                 time_limit = P(sim)$timeLimit,
-                                                                presolve = P(sim)$presolve,
+                                                             #  presolve = P(sim)$presolve,
                                                                 threads = P(sim)$threads,
                                                                 first_feasible = P(sim)$firstFeasible,
                                                                 verbose = P(sim)$verbose),
