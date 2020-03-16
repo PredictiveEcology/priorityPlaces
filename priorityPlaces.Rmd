@@ -3,6 +3,8 @@ title: "priorityPlaces"
 author: "Tati Micheltti and Alex Chubaty"
 date: "28 February 2020"
 output: pdf_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 # Overview
@@ -21,7 +23,9 @@ For help writing in R Markdown, see http://rmarkdown.rstudio.com/.
 # Usage
 
 ```{r module_usage}
-library(SpaDES)
+library(gurobi)
+library(SpaDES.core)
+library(SpaDES.tools)
 
 setPaths(modulePath = file.path(dirname(getwd())))
 getPaths() # shows where the 4 relevant paths are
@@ -34,7 +38,7 @@ parameters <- list(
                         "targets" = c(0.35, 0.1, 0.2),
                         "binaryDecision" = FALSE,
                         "constraintType" = list(
-                          add_locked_in_constraints = list(locked_in = c(50, 53,  52, 51)),
+                          add_locked_in_constraints = list(locked_in = c(50, 53, 52, 51)),
                           # add_feature_contiguity_constraints = NULL,
                           # add_neighbor_constraints = list(k = 2),
                           add_locked_out_constraints = list(locked_out = c(3, 4, 13, 14))),
@@ -48,7 +52,6 @@ inputs <- list()
 outputs <- list()
 
 mySim <- simInitAndSpades(times = times, params = parameters, modules = modules, objects = objects)
-
 ```
 
 # Parameters
