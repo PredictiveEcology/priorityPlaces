@@ -76,6 +76,7 @@ defineModule(sim, list(
                            "0.01 will result in the",
                            "optimizer stopping when the difference between the bounds is 1 percent ",
                            "of the upper bound.")),
+    defineParameter("nCores", "numeric", parallel::detectCores() * 0.9, NA, NA),
     defineParameter("penalty", "numeric", NULL, NA, NA,
                     paste0("Penalties that favor combinations of planning units with",
                           "high connectivity. The connectivity_matrix function will create a",
@@ -370,7 +371,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       
       # Converting threads from AUTO to optimal number of threads:
       if (P(sim)$threads == "AUTO")
-        params(sim)$priorityPlaces$threads <- floor(parallel::detectCores()*.9)
+        params(sim)$priorityPlaces$threads <- floor(P(Sim)$nCores)
       
             },
     createProblem = {
