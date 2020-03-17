@@ -130,7 +130,7 @@ defineModule(sim, list(
                                "This will be filtered for non-na values (i.e. important are = 1,",
                                "non-important areas need to be 0"),
                  sourceURL = NA),
-    expectsInput(objectName = "planningUnit", objectClass = "RasterLayer | data.frame",
+    expectsInput(objectName = "planningUnit", objectClass = "RasterLayer",
                  desc = paste0("Planning unit is the spatial area (study area) that should be",
                                "either a raster or data.frame. If the last, calculations",
                                " are faster. If the last, each row in the planning unit table must",
@@ -337,7 +337,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
 
       if (P(sim)$fasterOptimization) {
         message(crayon::yellow(paste0("fasterOptimization is TRUE. Certain contraints ",
-                                      "as contiguity and neighbor",
+                                      "as contiguity and neighbor ",
                                       "will be ignored if 'data' is not passed")))
         xy <- coordinates(sim$planningUnit)
         sim$planningUnit <- data.frame(id = 1:ncell(sim$planningUnit),
@@ -400,6 +400,9 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       # create a problem with targets which specify that we need 10 % of the habitat
       # for the first feature, 15 % for the second feature, 20 % for the third feature
       # 25 % for the fourth feature and 30 % of the habitat for the fifth feature
+      # Assertions
+      if (length(P(sim)$targets) != NROW(sim$featuresID[[paste0("Year", time(sim))]]))
+        stop("Length of targets needs to match the length of features")
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
       assign("conservationProblem",
              value = add_relative_targets(conservationProblem, P(sim)$targets),
@@ -470,7 +473,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
         assign("conservationProblem", value = add_gurobi_solver(conservationProblem,
                                                                 gap = P(sim)$gap,
                                                                 time_limit = P(sim)$timeLimit,
-                                                             #  presolve = P(sim)$presolve,
+                                                                presolve = P(sim)$presolve,
                                                                 threads = P(sim)$threads,
                                                                 first_feasible = P(sim)$firstFeasible,
                                                                 verbose = P(sim)$verbose),
