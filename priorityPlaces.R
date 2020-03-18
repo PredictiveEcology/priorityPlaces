@@ -210,13 +210,13 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     },
     dataSanityCheck = {
       # 1. Checking data: if rasters, need to match. If data frame, need to match with featuresData
-      if (is(sim$planningUnit, "RasterLayer")){
+      if (is(sim$planningUnit, "RasterLayer")) {
         if (any(is(sim$featuresID[[paste0("Year", time(sim))]][[1]], "RasterLayer"),
-                is(sim$featuresID[[paste0("Year", time(sim))]][[1]], "RasterStack"))){
+                is(sim$featuresID[[paste0("Year", time(sim))]][[1]], "RasterStack"))) {
           # Make sure all layers match, if all raster layers
           tryCatch({
             rstStk <- raster::stack(sim$planningUnit, sim$featuresID[[paste0("Year", time(sim))]])
-          }, error = function(e){
+          }, error = function(e) {
             message(crayon::red(paste0("The planningUnit raster's extent, alignment or projection ",
                                        "does not match the featuresID raster. A postprocessing of ",
                                        "planningUnit will be tried")))
@@ -239,11 +239,11 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
             stop("'featuresID' needs to be a raster, or data.frame. Shapefile not yet implemented in the SpaDES module")
           }
           # Check if the data.frame has 'id' column: unique identifier (i.e. matching 'species' in featuresData), and `name`"
-          if (!all(c("id", "name") %in% names(sim$featuresID[[paste0("Year", time(sim))]]))){
+          if (!all(c("id", "name") %in% names(sim$featuresID[[paste0("Year", time(sim))]]))) {
             stop("'featuresID' data.frame needs to have both 'id' and 'name' columns")
           }
           # Then check if  featuresData has been supplied. If not, stop
-          if (is.null(sim$featuresData)){
+          if (is.null(sim$featuresData)) {
             stop("'featuresID' is supplied as data.frame it is necessary to supply 'featuresData' as well")
           }
           # If featuresData has been supplied, test it has the same NROW (id's) as the planning unit's ncell
@@ -282,7 +282,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
             stop("'featuresID' number of cells and 'planningUnit' number of rows must match")
 
           # Then check if  featuresData has been supplied. If not, stop
-          if (is.null(sim$featuresData)){
+          if (is.null(sim$featuresData)) {
             stop("'featuresID' is supplied as data.frame it is necessary to supply 'featuresData' as well")
           }
 
@@ -294,7 +294,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
             stop("'featuresID' needs to be a raster, or data.frame. Shapefile not yet implemented in the SpaDES module")
           }
           # If featuresID. is a data.frame, check for existing featuresData. If not, stop.
-          if (is.null(sim$featuresData)){
+          if (is.null(sim$featuresData)) {
             stop("'featuresID' is supplied as data.frame it is necessary to supply 'featuresData' as well")
           }
 
@@ -323,7 +323,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       # 1b. If sim$planningUnit is a raster, and sim$planningUnitRaster is not matching it, overwrite
       tryCatch({
         raster::stack(sim$planningUnit, sim$planningUnitRaster)
-      }, error = function(e){
+      }, error = function(e) {
         message(crayon::red(paste0("planningUnitRaster does not match sim$planningUnit. The first will ",
                                    "be replaced by the last")))
         sim$planningUnitRaster <- sim$planningUnit
@@ -373,7 +373,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     },
     createProblem = {
       sim$problemEnv <- new.env(parent = emptyenv())
-      if (P(sim)$fasterOptimization){
+      if (P(sim)$fasterOptimization) {
       assign("conservationProblem", value = problem(x = sim$planningUnit,
                                                     features = sim$featuresID[[paste0("Year", time(sim))]],
                                                     rij = sim$featuresData,
@@ -409,7 +409,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
              envir = sim$problemEnv)
     },
     addConstraints = {
-      lapply(names(P(sim)$constraintType), function(const){
+      lapply(names(P(sim)$constraintType), function(const) {
         conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
         fun <- get(const)
         args <- P(sim)$constraintType[[const]]
@@ -417,7 +417,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
         tryCatch({
           assign("conservationProblem", value = do.call(fun, args = args),
                  envir = sim$problemEnv)
-        }, error = function(e){
+        }, error = function(e) {
           message(crayon::red(paste0(const, " will not be implemented. Argument 'data' needed ",
                                      "when P(sim)$fastOptimization == TRUE")))
         })
@@ -427,7 +427,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
       tryCatch({
         raster::stack(sim$planningUnitRaster, sim$importantAreas)
-      }, error = function(e){
+      }, error = function(e) {
         message(crayon::red(paste0("The importantAreas raster's extent, alignment or projection ",
                                    "does not match the planningUnitRaster. A postprocessing of ",
                                    "importantAreas will be tried")))
@@ -446,7 +446,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       },
     defineDecisionType = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
-      if (P(sim)$binaryDecision){
+      if (P(sim)$binaryDecision) {
         assign("conservationProblem", value = add_binary_decisions(conservationProblem),
                envir = sim$problemEnv)
       } else {
@@ -485,8 +485,8 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       sim$priorityAreas <- prioritizr::solve(conservationProblem)
       solutionsVector <- names(sim$priorityAreas)[grep(names(sim$priorityAreas),
                                                        pattern = "solution")]
-      priorityAreasList <- lapply(solutionsVector, function(solutionNumber){
-        if (P(sim)$fasterOptimization){
+      priorityAreasList <- lapply(solutionsVector, function(solutionNumber) {
+        if (P(sim)$fasterOptimization) {
           rasSolution <- setValues(x = sim$planningUnitRaster,
                                    values = sim$priorityAreas[[solutionNumber]])
         } else {
@@ -516,21 +516,21 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
   dPath <- asPath(getOption("reproducible.destinationPath", dataPath(sim)), 1)
   message(currentModule(sim), ": using dataPath '", dPath, "'.")
 
-  if (!suppliedElsewhere("planningUnit", sim = sim)){
+  if (!suppliedElsewhere("planningUnit", sim = sim)) {
     ras <- raster(ncol = 6, nrow = 6, xmn = -3, xmx = 3, ymn = -3, ymx = 3)
     ras[] <- c(1:6, 10:15, 20:25, 30:35, 40:45, 50:55)
     sim$planningUnit <- ras
   }
 
-  if (!suppliedElsewhere("planningUnitRaster", sim = sim)){
+  if (!suppliedElsewhere("planningUnitRaster", sim = sim)) {
     if (!is(sim$planningUnit, "RasterLayer"))
       stop(paste0("If planningUnit is NOT a RasterLayer ",
                   "you need to provide planningUnitRaster"))
     sim$planningUnitRaster <- sim$planningUnit
   }
 
-  if (!is.null(P(sim)$penalty)){
-    if (!suppliedElsewhere("importantAreas", sim = sim)){
+  if (!is.null(P(sim)$penalty)) {
+    if (!suppliedElsewhere("importantAreas", sim = sim)) {
       if (!is(sim$planningUnitRaster, "RasterLayer"))
         stop(paste0("If planningUnitRaster is NULL, or not a RasterLayer, and penalty is not NULL ",
                     "you need to provide importantAreas"))
@@ -539,7 +539,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       sim$importantAreas[runif(10, 1:ncell(sim$planningUnit))] <- 1
     }
   }
-  if (!suppliedElsewhere("featuresID", sim = sim)){
+  if (!suppliedElsewhere("featuresID", sim = sim)) {
     ras <- raster(ncol = 10, nrow = 10, xmn = -3, xmx = 3, ymn = -3, ymx = 3)
     crs(ras) <- "+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"
     ras  <- gaussMap(ras)
