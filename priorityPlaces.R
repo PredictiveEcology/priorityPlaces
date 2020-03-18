@@ -191,7 +191,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     eventType,
     init = {
       # schedule future event(s)
-     # 3. Add parameters to turn on and off each event
+      # 3. Add parameters to turn on and off each event
       sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "dataSanityCheck")
       sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "createProblem")
       sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "setObjectives")
@@ -511,7 +511,6 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
 #   - keep event functions short and clean, modularize by calling subroutines from section below.
 
 .inputObjects <- function(sim) {
-
   cacheTags <- c(currentModule(sim), "function:.inputObjects") ## uncomment this if Cache is being used
   dPath <- asPath(getOption("reproducible.destinationPath", dataPath(sim)), 1)
   message(currentModule(sim), ": using dataPath '", dPath, "'.")
