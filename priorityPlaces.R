@@ -369,7 +369,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
 
       # Converting threads from AUTO to optimal number of threads:
       if (P(sim)$threads == "AUTO")
-        params(sim)$priorityPlaces$threads <- floor(P(Sim)$nCores)
+        params(sim)$priorityPlaces$threads <- floor(P(sim)$nCores)
     },
     createProblem = {
       sim$problemEnv <- new.env(parent = emptyenv())
