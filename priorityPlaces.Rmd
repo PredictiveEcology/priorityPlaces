@@ -14,16 +14,42 @@ Provide an overview of what the module does / how to use the module.
 Module documentation should be written so that others can use your module.
 This is a template for module documentation, and should be changed to reflect your module.
 
-## R Markdown
+## Solver information
 
-R Markdown syntax allows R code, outputs, and figures to be rendered in the documentation.
+See <https://prioritizr.net/articles/prioritizr.html#add-a-solver> for a discussion on the different solvers available for this module.
 
-For help writing in R Markdown, see http://rmarkdown.rstudio.com/.
+### Gurobi
+
+See <https://prioritizr.net/articles/gurobi_installation.html> for installation instructions.
+Requires free academic or paid commercial license, and installation of both the Gurobi software and corresponding R package.
+
+*NOTE:* the `gurobi` package will fail to load in an Rstudio desktop session.
+
+### `Rsymphony`
+
+Requires COIN-OR Symphony header and development libraries.
+For Ubuntu 18.04 these can be installed via:
+
+```bash
+sudo apt install coinor-libsymphony-dev
+```
+
+Afterwards, a user must install the `Rsymphony` package from CRAN with `install.packages("Rsymphony")`.
+
+### `lpsymphony`
+
+Requires installation of the `lpsymphony` package from Bioconductor (<https://doi.org/doi:10.18129/B9.bioc.lpsymphony>).
+
+```r
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install("lpsymphony")
+```
 
 # Usage
 
 ```{r module_usage}
-library(gurobi)
 library(SpaDES.core)
 library(SpaDES.tools)
 

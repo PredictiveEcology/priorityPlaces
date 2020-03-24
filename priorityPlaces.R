@@ -17,7 +17,10 @@ defineModule(sim, list(
   timeunit = "year",
   citation = list("citation.bib"),
   documentation = deparse(list("README.txt", "priorityPlaces.Rmd")),
-  reqdPkgs = list("raster", "slam", "prioritizr", "crayon", "gurobi", "parallel"),
+  reqdPkgs = list("crayon", "parallel", "prioritizr", "raster",
+                  "slam", "gurobi" ## slam and gurobi are best but OPTIONAL
+                  ## TODO: how to add Rsymphony and lpsymphony as opitonal packages?
+  ),
   parameters = rbind(
     defineParameter(".plotInitialTime", "numeric", end(sim), NA, NA,
                     "Describes the simulation time at which the first plot event should occur."),
@@ -28,22 +31,22 @@ defineModule(sim, list(
     defineParameter(".saveInterval", "numeric", NA, NA, NA,
                     "This describes the simulation time interval between save events."),
     defineParameter(".useCache", "logical", FALSE, NA, NA,
-                    paste0("Should this entire module be run with caching activated?",
+                    paste("Should this entire module be run with caching activated?",
                           "This is generally intended for data-type modules, where stochasticity",
                           "and time are not relevant")),
     defineParameter("binaryDecision", "logical", FALSE, NA, NA,
-                    paste0(" Add a binary decision to a conservation planning problem. This is the ",
-                           "classic decision of either prioritizing or not prioritizing a planning ",
-                           "unit. Typically, this decision has the assumed action of buying the ",
-                           "planning unit to include in a protected area network. If no decision is",
-                           " added to a problem object, then this decision class will be used by",
-                           " default.",
-                           " If FALSE, Add a proportion decision to a problem. This is a relaxed ",
-                           "decision where a part of a planning unit can be prioritized, as opposed ",
-                           "to the default of the entire planning unit. Typically, this decision has",
-                           " the assumed action of buying a fraction of a planning unit to include ",
-                           "in a protected area network. Generally, problems can be solved much ",
-                           "faster with proportion-type decisions than binary-type decisions.")),
+                    paste("Add a binary decision to a conservation planning problem.",
+                          "This is the classic decision of either prioritizing or not prioritizing",
+                          "a planning unit. Typically, this decision has the assumed action of",
+                          "buying the planning unit to include in a protected area network.",
+                          "If no decision is added to a problem object, then this decision class",
+                          "will be used by default.",
+                          "If FALSE, Add a proportion decision to a problem. This is a relaxed",
+                          "decision where a part of a planning unit can be prioritized, as opposed",
+                          "to the default of the entire planning unit. Typically, this decision has",
+                          "the assumed action of buying a fraction of a planning unit to include",
+                          "in a protected area network. Generally, problems can be solved much",
+                          "faster with proportion-type decisions than binary-type decisions.")),
     defineParameter("constraintType", "list", "", NA, NA,
                     paste0("NAMED list with the following",
                            "add_locked_in_constraints: locked_in = numeric vector, matching the 'id' column from plannigUnit.",
@@ -91,6 +94,10 @@ defineModule(sim, list(
     defineParameter("solutions", "numeric", 10, NA, NA,
                     paste0("integer number of attempts to generate different solutions. ",
                            "Defaults to 10")),
+    defineParameter("solver", "character", NULL, NA, NA,
+                    paste("Which optimizer/solver to use.",
+                          "One of 'gurobi', 'rsymphony', 'lpsymphony', or NULL.",
+                          "If NULL, attempt to figure out best solver to use. See ?prioritizr::solvers.")),
     defineParameter("targets", "numeric", 0.3, NA, NA,
                     paste0("create a problem with targets which specify that we need X% of each",
                            "feature. Can be one value, or exactly the length of the featureID's")),
@@ -190,6 +197,14 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
   switch(
     eventType,
     init = {
+      mod$solver <- if(is.null(P(sim)$solver)) {
+        tolower(prioritizr:::default_solver_name())
+      } else if (tolower(P(sim)$solver) %in% c("gurobi", "rsymphony", "lpsymphony")) {
+        tolower(P(sim)$solver)
+      } else {
+        stop("'solver' must be one of 'gurobi', 'rsymphony', 'lpsymphony' or NULL")
+      }
+
       # schedule future event(s)
       # 3. Add parameters to turn on and off each event
       sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "dataSanityCheck")
@@ -201,7 +216,10 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       if (!is.null(P(sim)$penalty))
         sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "definePenalties")
       sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "defineDecisionType")
-      sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "createPortfolio")
+
+      if (mod$solver == "gurobi") {
+        sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "createPortfolio")
+      }
       sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "initializeSolver")
       sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "definePriorityPlaces",
                            eventPriority = .last())
@@ -467,9 +485,9 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
              envir = sim$problemEnv)
     },
     initializeSolver = {
-      useGurobi <- TRUE ## TODO: test if gurobi on the system
-      if (isTRUE(useGurobi)) {
-        conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
+      conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
+
+      if (mod$solver == "gurobi") {
         assign("conservationProblem", value = add_gurobi_solver(conservationProblem,
                                                                 gap = P(sim)$gap,
                                                                 time_limit = P(sim)$timeLimit,
@@ -477,6 +495,24 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                                                 threads = P(sim)$threads,
                                                                 first_feasible = P(sim)$firstFeasible,
                                                                 verbose = P(sim)$verbose),
+               envir = sim$problemEnv)
+      } else if (mod$solver == "rsymphony") {
+        assign("conservationProblem", value = add_rsymphony_solver(conservationProblem,
+                                                                   gap = P(sim)$gap,
+                                                                   time_limit = P(sim)$timeLimit,
+                                                                   #presolve = P(sim)$presolve,
+                                                                   #threads = P(sim)$threads,
+                                                                   first_feasible = P(sim)$firstFeasible,
+                                                                   verbose = P(sim)$verbose),
+               envir = sim$problemEnv)
+      } else if (mod$solver == "lpsymphony") {
+        assign("conservationProblem", value = add_lpsymphony_solver(conservationProblem,
+                                                                    gap = P(sim)$gap,
+                                                                    time_limit = P(sim)$timeLimit,
+                                                                    #presolve = P(sim)$presolve,
+                                                                    #threads = P(sim)$threads,
+                                                                    first_feasible = P(sim)$firstFeasible,
+                                                                    verbose = P(sim)$verbose),
                envir = sim$problemEnv)
       }
     },
