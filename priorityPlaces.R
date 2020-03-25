@@ -17,8 +17,8 @@ defineModule(sim, list(
   timeunit = "year",
   citation = list("citation.bib"),
   documentation = deparse(list("README.txt", "priorityPlaces.Rmd")),
-  reqdPkgs = list("crayon", "parallel", "prioritizr", "raster",
-                  "slam", "gurobi" ## slam and gurobi are best but OPTIONAL
+  reqdPkgs = list("crayon", "parallel", "prioritizr", "raster"
+                  ## "slam", "gurobi" ## slam and gurobi are best but OPTIONAL
                   ## TODO: how to add Rsymphony and lpsymphony as opitonal packages?
   ),
   parameters = rbind(
