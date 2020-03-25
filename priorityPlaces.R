@@ -19,7 +19,7 @@ defineModule(sim, list(
   documentation = deparse(list("README.txt", "priorityPlaces.Rmd")),
   reqdPkgs = list("crayon", "parallel", "prioritizr", "raster"
                   ## "slam", "gurobi" ## slam and gurobi are best but OPTIONAL
-                  ## TODO: how to add Rsymphony and lpsymphony as opitonal packages?
+                  ## TODO: how to add Rsymphony and lpsymphony as optional packages?
   ),
   parameters = rbind(
     defineParameter(".plotInitialTime", "numeric", end(sim), NA, NA,
