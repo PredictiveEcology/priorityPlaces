@@ -216,10 +216,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       if (!is.null(P(sim)$penalty))
         sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "definePenalties")
       sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "defineDecisionType")
-
-      if (mod$solver == "gurobi") {
-        sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "createPortfolio")
-      }
+      sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "createPortfolio")
       sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "initializeSolver")
       sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "definePriorityPlaces",
                            eventPriority = .last())
@@ -461,7 +458,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                             data = connectivity_matrix(sim$planningUnitRaster,
                                                                        sim$importantAreas)),
              envir = sim$problemEnv)
-      },
+    },
     defineDecisionType = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
       if (P(sim)$binaryDecision) {
@@ -473,16 +470,27 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       }
     },
     createPortfolio = {
-      # There are various methods for constructing the solution pool, but in most cases, setting
-      # the method argument to 2 is recommended because this will mean that the solution pool will
-      # contain a set number of solutions that are nearest to optimality (e.g. the top 10 solutions
-      # nearest to optimality). This method is the fastest for generating a portfolio of solutions,
-      # but it requires that the Gurobi optimization solver to be specified for solving problems.
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
-      assign("conservationProblem", value = add_pool_portfolio(conservationProblem,
-                                                               method = 2,
-                                                               number_solutions = P(sim)$solutions),
-             envir = sim$problemEnv)
+
+      if (mod$solver == "gurobi") {
+        # There are various methods for constructing the solution pool, but in most cases, setting
+        # the method argument to 2 is recommended because this will mean that the solution pool will
+        # contain a set number of solutions that are nearest to optimality (e.g. the top 10 solutions
+        # nearest to optimality). This method is the fastest for generating a portfolio of solutions,
+        # but it requires that the Gurobi optimization solver to be specified for solving problems.
+        assign("conservationProblem", value = add_pool_portfolio(conservationProblem,
+                                                                 method = 2,
+                                                                 number_solutions = P(sim)$solutions),
+               envir = sim$problemEnv)
+      } else {
+        # Generate a portfolio of solutions by randomly reordering the data prior to attempting to
+        # solve the problem. If the Gurobi optimization solver is not available, this method is the
+        # fastest method for generating a set number of solutions within a specified distance from optimality.
+        assign("conservationProblem", value = add_shuffle_portfolio(conservationProblem,
+                                                                    number_solutions = P(sim)$solutions,
+                                                                    remove_duplicates = FALSE),
+               envir = sim$problemEnv)
+      }
     },
     initializeSolver = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
