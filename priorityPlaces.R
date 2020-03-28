@@ -494,7 +494,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     createPortfolio = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
 
-      if (P(sim)$solver == "gurobi") {
+      if (mod$solver == "gurobi") {
         # There are various methods for constructing the solution pool, but in most cases, setting
         # the method argument to 2 is recommended because this will mean that the solution pool will
         # contain a set number of solutions that are nearest to optimality (e.g. the top 10 solutions
@@ -519,7 +519,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     initializeSolver = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
 
-      if (P(sim)$solver == "gurobi") {
+      if (mod$solver == "gurobi") {
         assign("conservationProblem", value = add_gurobi_solver(conservationProblem,
                                                                 gap = P(sim)$gap,
                                                                 time_limit = P(sim)$timeLimit,
@@ -528,7 +528,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                                                 first_feasible = P(sim)$firstFeasible,
                                                                 verbose = P(sim)$verbose),
                envir = sim$problemEnv)
-      } else if (P(sim)$solver == "rsymphony") {
+      } else if (mod$solver == "rsymphony") {
         assign("conservationProblem", value = add_rsymphony_solver(conservationProblem,
                                                                    gap = P(sim)$gap,
                                                                    time_limit = P(sim)$timeLimit,
@@ -537,7 +537,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                                                    first_feasible = P(sim)$firstFeasible,
                                                                    verbose = P(sim)$verbose),
                envir = sim$problemEnv)
-      } else if (P(sim)$solver == "lpsymphony") {
+      } else if (mod$solver == "lpsymphony") {
         assign("conservationProblem", value = add_lpsymphony_solver(conservationProblem,
                                                                     gap = P(sim)$gap,
                                                                     time_limit = P(sim)$timeLimit,
