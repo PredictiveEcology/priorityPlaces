@@ -543,7 +543,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       names(sim$priorityAreas) <- solutionsVector
     },
     plot = {
-      quickPlot::Plot(sim$priorityAreas)
+      # quickPlot::Plot(sim$priorityAreas)
     },
     warning(paste("Undefined event type: \'", current(sim)[1, "eventType", with = FALSE],
                   "\' in module \'", current(sim)[1, "moduleName", with = FALSE], "\'", sep = ""))
