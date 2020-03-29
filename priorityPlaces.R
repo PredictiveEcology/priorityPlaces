@@ -229,6 +229,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                            eventPriority = .last())
       sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "priorityPlaces", "plot",
                            eventPriority = .last())
+      sim$priorityAreasList <- sim$priorityAreas <- list()
     },
     dataSanityCheck = {
       # 1. Checking data: if rasters, need to match. If data frame, need to match with featuresData
@@ -423,7 +424,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       # for the first feature, 15 % for the second feature, 20 % for the third feature
       # 25 % for the fourth feature and 30 % of the habitat for the fifth feature
       # Assertions
-      if (length(P(sim)$targets) != NROW(sim$featuresID[[paste0("Year", time(sim))]]))
+        if (length(P(sim)$targets) != NROW(sim$featuresID[[paste0("Year", time(sim))]]))
         stop("Length of targets needs to match the length of features")
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
       assign("conservationProblem",
