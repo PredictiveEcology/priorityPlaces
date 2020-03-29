@@ -199,16 +199,9 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
   switch(
     eventType,
     init = {
-
       sim$priorityAreas <- list()
 
-      mod$solver <- if(is.null(P(sim)$solver)) {
-        tolower(prioritizr:::default_solver_name())
-      } else if (tolower(P(sim)$solver) %in% c("gurobi", "rsymphony", "lpsymphony")) {
-        tolower(P(sim)$solver)
-      } else {
-        stop("'solver' must be one of 'gurobi', 'rsymphony', 'lpsymphony' or NULL")
-      }
+      solver <- getSolver(P(sim)$solver)
 
       # schedule future event(s)
       # 3. Add parameters to turn on and off each event
@@ -227,7 +220,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                            eventPriority = .last())
       sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "priorityPlaces", "plot",
                            eventPriority = .last())
-      
+
     },
     dataSanityCheck = {
       # 1. Checking data: if rasters, need to match. If data frame, need to match with featuresData
@@ -391,7 +384,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       # Converting threads from AUTO to optimal number of threads:
       if (P(sim)$threads == "AUTO")
         params(sim)$priorityPlaces$threads <- floor(P(sim)$nCores)
-      
+
       # Schedule future events
       sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "dataSanityCheck")
     },
@@ -419,7 +412,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
       assign("conservationProblem", value = add_min_set_objective(conservationProblem),
              envir = sim$problemEnv)
-      
+
       sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "setObjectives")
     },
     setTargets = {
@@ -434,7 +427,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       assign("conservationProblem",
              value = add_relative_targets(conservationProblem, P(sim)$targets),
              envir = sim$problemEnv)
-      
+
       sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "setTargets")
     },
     addConstraints = {
@@ -451,7 +444,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                      "when P(sim)$fastOptimization == TRUE")))
         })
       })
-      
+
       if (any(P(sim)$constraintType != ""))
         sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "addConstraints")
     },
@@ -475,7 +468,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                             data = connectivity_matrix(sim$planningUnitRaster,
                                                                        sim$importantAreas)),
              envir = sim$problemEnv)
-      
+
       if (!is.null(P(sim)$penalty))
         sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "definePenalties")
     },
@@ -488,13 +481,14 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
         assign("conservationProblem", value = add_proportion_decisions(conservationProblem),
                envir = sim$problemEnv)
       }
-      
+
       sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "defineDecisionType")
     },
     createPortfolio = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
 
-      if (mod$solver == "gurobi") {
+      solver <- getSolver(P(sim)$solver)
+      if (solver == "gurobi") {
         # There are various methods for constructing the solution pool, but in most cases, setting
         # the method argument to 2 is recommended because this will mean that the solution pool will
         # contain a set number of solutions that are nearest to optimality (e.g. the top 10 solutions
@@ -513,13 +507,14 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                                                     remove_duplicates = FALSE),
                envir = sim$problemEnv)
       }
-      
+
       sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "createPortfolio")
     },
     initializeSolver = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
 
-      if (mod$solver == "gurobi") {
+      solver <- getSolver(P(sim)$solver)
+      if (solver == "gurobi") {
         assign("conservationProblem", value = add_gurobi_solver(conservationProblem,
                                                                 gap = P(sim)$gap,
                                                                 time_limit = P(sim)$timeLimit,
@@ -528,7 +523,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                                                 first_feasible = P(sim)$firstFeasible,
                                                                 verbose = P(sim)$verbose),
                envir = sim$problemEnv)
-      } else if (mod$solver == "rsymphony") {
+      } else if (solver == "rsymphony") {
         assign("conservationProblem", value = add_rsymphony_solver(conservationProblem,
                                                                    gap = P(sim)$gap,
                                                                    time_limit = P(sim)$timeLimit,
@@ -537,7 +532,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                                                    first_feasible = P(sim)$firstFeasible,
                                                                    verbose = P(sim)$verbose),
                envir = sim$problemEnv)
-      } else if (mod$solver == "lpsymphony") {
+      } else if (solver == "lpsymphony") {
         assign("conservationProblem", value = add_lpsymphony_solver(conservationProblem,
                                                                     gap = P(sim)$gap,
                                                                     time_limit = P(sim)$timeLimit,
@@ -547,11 +542,11 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                                                     verbose = P(sim)$verbose),
                envir = sim$problemEnv)
       }
-      
+
       sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "initializeSolver")
     },
     definePriorityPlaces = {
-      priorityAreasList <- list() 
+      priorityAreasList <- list()
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
       sim$priorityAreas[[paste0("Year", time(sim))]] <- prioritizr::solve(conservationProblem)
       solutionsVector <- names(sim$priorityAreas[[paste0("Year", time(sim))]])[grep(names(sim$priorityAreas[[paste0("Year", time(sim))]]),
@@ -568,7 +563,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       })
       sim$priorityAreas[[paste0("Year", time(sim))]] <- priorityAreasList[[paste0("Year", time(sim))]]
       names(sim$priorityAreas[[paste0("Year", time(sim))]]) <- solutionsVector
-      
+
       sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "definePriorityPlaces",
                            eventPriority = .last())
     },
