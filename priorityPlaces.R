@@ -186,11 +186,7 @@ defineModule(sim, list(
                                 " will convert it to data.frame with the necessary adjustments")),
     createsOutput(objectName = "priorityAreas", objectClass = "list",
                   desc = paste0("List of raster layer showing which areas should be prioritized",
-                                " showing optimal/near optimal areas")),
-   createsOutput(objectName = "priorityAreasList", objectClass = "list",
-                  desc = paste0("List of raster layer showing which areas should be prioritized",
                                 " showing optimal/near optimal areas"))
-
   )
 ))
 
@@ -202,7 +198,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     eventType,
     init = {
 
-      sim$priorityAreasList <- sim$priorityAreas <- list()
+      sim$priorityAreas <- list()
 
       mod$solver <- if(is.null(P(sim)$solver)) {
         tolower(prioritizr:::default_solver_name())
@@ -229,7 +225,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                            eventPriority = .last())
       sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "priorityPlaces", "plot",
                            eventPriority = .last())
-      sim$priorityAreasList <- sim$priorityAreas <- list()
+      
     },
     dataSanityCheck = {
       # 1. Checking data: if rasters, need to match. If data frame, need to match with featuresData
@@ -533,6 +529,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       }
     },
     definePriorityPlaces = {
+      priorityAreasList <- list() 
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
       sim$priorityAreas[[paste0("Year", time(sim))]] <- prioritizr::solve(conservationProblem)
       solutionsVector <- names(sim$priorityAreas[[paste0("Year", time(sim))]])[grep(names(sim$priorityAreas[[paste0("Year", time(sim))]]),
