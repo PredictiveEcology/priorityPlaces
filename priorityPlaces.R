@@ -22,7 +22,7 @@ defineModule(sim, list(
                   ## TODO: how to add Rsymphony and lpsymphony as optional packages?
   ),
   parameters = rbind(
-    defineParameter(".plotInitialTime", "numeric", end(sim), NA, NA,
+    defineParameter(".plotInitialTime", "numeric", NA, NA, NA,
                     "Describes the simulation time at which the first plot event should occur."),
     defineParameter(".plotInterval", "numeric", NA, NA, NA,
                     "Describes the simulation time interval between plot events."),
