@@ -568,7 +568,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                            eventPriority = .last())
     },
     plot = {
-      # quickPlot::Plot(sim$priorityAreas[[paste0("Year", time(sim))]])
+      quickPlot::Plot(sim$priorityAreas[[paste0("Year", time(sim))]])
       sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "priorityPlaces", "plot",
                            eventPriority = .last())
     },
