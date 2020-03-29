@@ -186,7 +186,11 @@ defineModule(sim, list(
                                 " will convert it to data.frame with the necessary adjustments")),
     createsOutput(objectName = "priorityAreas", objectClass = "list",
                   desc = paste0("List of raster layer showing which areas should be prioritized",
+                                " showing optimal/near optimal areas")),
+   createsOutput(objectName = "priorityAreasList", objectClass = "list",
+                  desc = paste0("List of raster layer showing which areas should be prioritized",
                                 " showing optimal/near optimal areas"))
+
   )
 ))
 
@@ -197,6 +201,9 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
   switch(
     eventType,
     init = {
+
+      sim$priorityAreasList <- sim$priorityAreas <- list()
+
       mod$solver <- if(is.null(P(sim)$solver)) {
         tolower(prioritizr:::default_solver_name())
       } else if (tolower(P(sim)$solver) %in% c("gurobi", "rsymphony", "lpsymphony")) {
@@ -526,24 +533,24 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     },
     definePriorityPlaces = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
-      sim$priorityAreas <- prioritizr::solve(conservationProblem)
-      solutionsVector <- names(sim$priorityAreas)[grep(names(sim$priorityAreas),
+      sim$priorityAreas[[paste0("Year", time(sim))]] <- prioritizr::solve(conservationProblem)
+      solutionsVector <- names(sim$priorityAreas[[paste0("Year", time(sim))]])[grep(names(sim$priorityAreas[[paste0("Year", time(sim))]]),
                                                        pattern = "solution")]
-      priorityAreasList <- lapply(solutionsVector, function(solutionNumber) {
+      priorityAreasList[[paste0("Year", time(sim))]] <- lapply(solutionsVector, function(solutionNumber) {
         if (P(sim)$fasterOptimization) {
           rasSolution <- setValues(x = sim$planningUnitRaster,
-                                   values = sim$priorityAreas[[solutionNumber]])
+                                   values = sim$priorityAreas[[paste0("Year", time(sim))]][[solutionNumber]])
         } else {
-          rasSolution <- sim$priorityAreas[[solutionNumber]]
+          rasSolution <- sim$priorityAreas[[paste0("Year", time(sim))]][[solutionNumber]]
         }
         names(rasSolution) <- solutionNumber
         return(rasSolution)
       })
-      sim$priorityAreas <- priorityAreasList
-      names(sim$priorityAreas) <- solutionsVector
+      sim$priorityAreas[[paste0("Year", time(sim))]] <- priorityAreasList[[paste0("Year", time(sim))]]
+      names(sim$priorityAreas[[paste0("Year", time(sim))]]) <- solutionsVector
     },
     plot = {
-      # quickPlot::Plot(sim$priorityAreas)
+      # quickPlot::Plot(sim$priorityAreas[[paste0("Year", time(sim))]])
     },
     warning(paste("Undefined event type: \'", current(sim)[1, "eventType", with = FALSE],
                   "\' in module \'", current(sim)[1, "moduleName", with = FALSE], "\'", sep = ""))
