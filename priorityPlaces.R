@@ -34,6 +34,8 @@ defineModule(sim, list(
                     paste("Should this entire module be run with caching activated?",
                           "This is generally intended for data-type modules, where stochasticity",
                           "and time are not relevant")),
+    defineParameter("stepInterval", "numeric", 1, NA, NA,
+                    "This describes the simulation time interval between events."),
     defineParameter("binaryDecision", "logical", FALSE, NA, NA,
                     paste("Add a binary decision to a conservation planning problem.",
                           "This is the classic decision of either prioritizing or not prioritizing",
@@ -389,6 +391,9 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       # Converting threads from AUTO to optimal number of threads:
       if (P(sim)$threads == "AUTO")
         params(sim)$priorityPlaces$threads <- floor(P(sim)$nCores)
+      
+      # Schedule future events
+      sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "dataSanityCheck")
     },
     createProblem = {
       sim$problemEnv <- new.env(parent = emptyenv())
@@ -404,6 +409,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                                       features = sim$featuresID[[paste0("Year", time(sim))]]),
                envir = sim$problemEnv)
       }
+      sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "createProblem")
     },
     setObjectives = {
       # Minimum set objective: Minimize the cost of the solution whilst ensuring
@@ -413,6 +419,8 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
       assign("conservationProblem", value = add_min_set_objective(conservationProblem),
              envir = sim$problemEnv)
+      
+      sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "setObjectives")
     },
     setTargets = {
       # Rules/Targets:
@@ -426,6 +434,8 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       assign("conservationProblem",
              value = add_relative_targets(conservationProblem, P(sim)$targets),
              envir = sim$problemEnv)
+      
+      sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "setTargets")
     },
     addConstraints = {
       lapply(names(P(sim)$constraintType), function(const) {
@@ -441,6 +451,9 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                      "when P(sim)$fastOptimization == TRUE")))
         })
       })
+      
+      if (any(P(sim)$constraintType != ""))
+        sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "addConstraints")
     },
     definePenalties = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
@@ -462,6 +475,9 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                             data = connectivity_matrix(sim$planningUnitRaster,
                                                                        sim$importantAreas)),
              envir = sim$problemEnv)
+      
+      if (!is.null(P(sim)$penalty))
+        sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "definePenalties")
     },
     defineDecisionType = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
@@ -472,6 +488,8 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
         assign("conservationProblem", value = add_proportion_decisions(conservationProblem),
                envir = sim$problemEnv)
       }
+      
+      sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "defineDecisionType")
     },
     createPortfolio = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
@@ -495,6 +513,8 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                                                     remove_duplicates = FALSE),
                envir = sim$problemEnv)
       }
+      
+      sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "createPortfolio")
     },
     initializeSolver = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
@@ -527,6 +547,8 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                                                     verbose = P(sim)$verbose),
                envir = sim$problemEnv)
       }
+      
+      sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "initializeSolver")
     },
     definePriorityPlaces = {
       priorityAreasList <- list() 
@@ -546,9 +568,14 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       })
       sim$priorityAreas[[paste0("Year", time(sim))]] <- priorityAreasList[[paste0("Year", time(sim))]]
       names(sim$priorityAreas[[paste0("Year", time(sim))]]) <- solutionsVector
+      
+      sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "definePriorityPlaces",
+                           eventPriority = .last())
     },
     plot = {
       # quickPlot::Plot(sim$priorityAreas[[paste0("Year", time(sim))]])
+      sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "priorityPlaces", "plot",
+                           eventPriority = .last())
     },
     warning(paste("Undefined event type: \'", current(sim)[1, "eventType", with = FALSE],
                   "\' in module \'", current(sim)[1, "moduleName", with = FALSE], "\'", sep = ""))
