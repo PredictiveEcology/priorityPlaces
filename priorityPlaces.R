@@ -589,7 +589,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
   cacheTags <- c(currentModule(sim), "function:.inputObjects") ## uncomment this if Cache is being used
   dPath <- asPath(getOption("reproducible.destinationPath", dataPath(sim)), 1)
   message(currentModule(sim), ": using dataPath '", dPath, "'.")
-
+browser()
   if (!suppliedElsewhere("planningUnit", sim = sim)) {
     ras <- raster(ncol = 6, nrow = 6, xmn = -3, xmx = 3, ymn = -3, ymx = 3)
     ras[] <- c(1:6, 10:15, 20:25, 30:35, 40:45, 50:55)
