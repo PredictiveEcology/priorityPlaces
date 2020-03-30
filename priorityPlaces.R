@@ -598,12 +598,12 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     names(sim$planningUnit) <- paste0("Year", start(sim))
   }
 
-  # if (!suppliedElsewhere("planningUnitRaster", sim = sim)) {
-  #   if (!is(sim$planningUnit[[1]], "RasterLayer"))
-  #     stop(paste0("If planningUnit is NOT a RasterLayer ",
-  #                 "you need to provide planningUnitRaster"))
-  #   sim$planningUnitRaster <- sim$planningUnit
-  # }
+  if (!suppliedElsewhere("planningUnitRaster", sim = sim)) {
+    if (!is(sim$planningUnit[[1]], "RasterLayer"))
+      stop(paste0("If planningUnit is NOT a RasterLayer ",
+                  "you need to provide planningUnitRaster"))
+    sim$planningUnitRaster <- sim$planningUnit
+  }
 
   if (!is.null(P(sim)$penalty)) {
     if (!suppliedElsewhere("importantAreas", sim = sim)) {
