@@ -200,6 +200,8 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     eventType,
     init = {
       sim$priorityAreas <- list()
+      browser()
+      
 
       solver <- getSolver(P(sim)$solver)
 
@@ -336,11 +338,11 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
 
       # 1b. If sim$planningUnit is a raster, and sim$planningUnitRaster is not matching it, overwrite
       tryCatch({
-        raster::stack(sim$planningUnit, sim$planningUnitRaster)
+        raster::stack(sim$planningUnit[[paste0("Year", time(sim))]], sim$planningUnitRaster[[paste0("Year", time(sim))]])
       }, error = function(e) {
         message(crayon::red(paste0("planningUnitRaster does not match sim$planningUnit. The first will ",
                                    "be replaced by the last")))
-        sim$planningUnitRaster <- sim$planningUnit
+        sim$planningUnitRaster[[paste0("Year", time(sim))]] <- sim$planningUnit[[paste0("Year", time(sim))]]
       })
 
       # if sim$planningUnit or sim$featuresID is a raster, needs to be extracted to a data.frame:
@@ -353,9 +355,9 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
         message(crayon::yellow(paste0("fasterOptimization is TRUE. Certain contraints ",
                                       "as contiguity and neighbor ",
                                       "will be ignored if 'data' is not passed")))
-        xy <- coordinates(sim$planningUnit)
-        sim$planningUnit <- data.frame(id = 1:ncell(sim$planningUnit),
-                                       cost = raster::getValues(sim$planningUnit),
+        xy <- coordinates(sim$planningUnit[[paste0("Year", time(sim))]])
+        sim$planningUnit[[paste0("Year", time(sim))]] <- data.frame(id = 1:ncell(sim$planningUnit[[paste0("Year", time(sim))]]),
+                                       cost = raster::getValues(sim$planningUnit[[paste0("Year", time(sim))]]),
                                        xloc = xy[, "x"],
                                        yloc = xy[, "y"])
 
@@ -391,14 +393,14 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     createProblem = {
       sim$problemEnv <- new.env(parent = emptyenv())
       if (P(sim)$fasterOptimization) {
-      assign("conservationProblem", value = problem(x = sim$planningUnit,
+      assign("conservationProblem", value = problem(x = sim$planningUnit[[paste0("Year", time(sim))]],
                                                     features = sim$featuresID[[paste0("Year", time(sim))]],
                                                     rij = sim$featuresData,
                                                     cost_column = "cost"),
              envir = sim$problemEnv)
 
       } else {
-        assign("conservationProblem", value = problem(x = sim$planningUnit,
+        assign("conservationProblem", value = problem(x = sim$planningUnit[[paste0("Year", time(sim))]],
                                                       features = sim$featuresID[[paste0("Year", time(sim))]]),
                envir = sim$problemEnv)
       }
@@ -455,22 +457,22 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     definePenalties = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
       tryCatch({
-        raster::stack(sim$planningUnitRaster, sim$importantAreas)
+        raster::stack(sim$planningUnitRaster[[paste0("Year", time(sim))]], sim$importantAreas[[paste0("Year", time(sim))]])
       }, error = function(e) {
         message(crayon::red(paste0("The importantAreas raster's extent, alignment or projection ",
                                    "does not match the planningUnitRaster. A postprocessing of ",
                                    "importantAreas will be tried")))
-        sim$importantAreas <- Cache(reproducible::postProcess, sim$importantAreas,
+        sim$importantAreas[[paste0("Year", time(sim))]] <- Cache(reproducible::postProcess, sim$importantAreas[[paste0("Year", time(sim))]],
                                     destinationPath = dataPath(sim),
-                                    rasterToMatch = sim$planningUnitRaster,
+                                    rasterToMatch = sim$planningUnitRaster[[paste0("Year", time(sim))]],
                                     filename2 = NULL,
                                     userTags = c("event:definePenalties", "goal:aligningIAandPUR"))
       })
       assign("conservationProblem",
              value = add_boundary_penalties(conservationProblem,
                                             penalty = P(sim)$penalty,
-                                            data = connectivity_matrix(sim$planningUnitRaster,
-                                                                       sim$importantAreas)),
+                                            data = connectivity_matrix(sim$planningUnitRaster[[paste0("Year", time(sim))]],
+                                                                       sim$importantAreas[[paste0("Year", time(sim))]])),
              envir = sim$problemEnv)
 
       if (!is.null(P(sim)$penalty))
@@ -557,7 +559,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                                        pattern = "solution")]
       priorityAreasList[[paste0("Year", time(sim))]] <- lapply(solutionsVector, function(solutionNumber) {
         if (P(sim)$fasterOptimization) {
-          rasSolution <- setValues(x = sim$planningUnitRaster,
+          rasSolution <- setValues(x = sim$planningUnitRaster[[paste0("Year", time(sim))]],
                                    values = sim$priorityAreas[[paste0("Year", time(sim))]][[solutionNumber]])
         } else {
           rasSolution <- sim$priorityAreas[[paste0("Year", time(sim))]][[solutionNumber]]
@@ -593,11 +595,12 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
   if (!suppliedElsewhere("planningUnit", sim = sim)) {
     ras <- raster(ncol = 6, nrow = 6, xmn = -3, xmx = 3, ymn = -3, ymx = 3)
     ras[] <- c(1:6, 10:15, 20:25, 30:35, 40:45, 50:55)
-    sim$planningUnit <- ras
+    sim$planningUnit <- list(ras)
+    names(sim$planningUnit) <- paste0("Year", start(sim))
   }
 
   if (!suppliedElsewhere("planningUnitRaster", sim = sim)) {
-    if (!is(sim$planningUnit, "RasterLayer"))
+    if (!is(sim$planningUnit[[1]], "RasterLayer"))
       stop(paste0("If planningUnit is NOT a RasterLayer ",
                   "you need to provide planningUnitRaster"))
     sim$planningUnitRaster <- sim$planningUnit
@@ -605,12 +608,15 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
 
   if (!is.null(P(sim)$penalty)) {
     if (!suppliedElsewhere("importantAreas", sim = sim)) {
-      if (!is(sim$planningUnitRaster, "RasterLayer"))
+      if (!is(sim$planningUnitRaster[[1]], "RasterLayer"))
         stop(paste0("If planningUnitRaster is NULL, or not a RasterLayer, and penalty is not NULL ",
                     "you need to provide importantAreas"))
       sim$importantAreas <- sim$planningUnitRaster
-      sim$importantAreas[] <- NA
-      sim$importantAreas[runif(10, 1:ncell(sim$planningUnit))] <- 1
+      sim$importantAreas <- lapply(sim$importantAreas, function(ras){
+        ras[] <- NA
+        ras[runif(10, 1:ncell(sim$planningUnit))] <- 1
+        return(ras)
+      })
     }
   }
   if (!suppliedElsewhere("featuresID", sim = sim)) {
