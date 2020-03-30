@@ -200,7 +200,6 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     eventType,
     init = {
       sim$priorityAreas <- list()
-      browser()
 
       solver <- getSolver(P(sim)$solver)
 
@@ -230,18 +229,18 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                 is(sim$featuresID[[paste0("Year", time(sim))]][[1]], "RasterStack"))) {
           # Make sure all layers match, if all raster layers
           tryCatch({
-            rstStk <- raster::stack(sim$planningUnit, sim$featuresID[[paste0("Year", time(sim))]])
+            rstStk <- raster::stack(sim$planningUnit[[paste0("Year", time(sim))]], sim$featuresID[[paste0("Year", time(sim))]])
           }, error = function(e) {
             message(crayon::red(paste0("The planningUnit raster's extent, alignment or projection ",
                                        "does not match the featuresID raster. A postprocessing of ",
                                        "planningUnit will be tried")))
-            sim$planningUnit <- Cache(reproducible::postProcess, sim$planningUnit,
+            sim$planningUnit[[paste0("Year", time(sim))]] <- Cache(reproducible::postProcess, sim$planningUnit[[paste0("Year", time(sim))]],
                                       destinationPath = dataPath(sim),
                                       rasterToMatch = sim$featuresID[[paste0("Year", time(sim))]][[1]],
                                       filename2 = NULL,
                                       userTags = c("init", "goal:aligningPUandFID"))
           })
-          rstStk <- raster::stack(sim$planningUnit,
+          rstStk <- raster::stack(sim$planningUnit[[paste0("Year", time(sim))]],
                                   sim$featuresID[[paste0("Year", time(sim))]])
           if (any(is(rstStk, "RasterStack"), is(rstStk, "RasterBrick")))
             isOK <- TRUE
@@ -262,7 +261,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
             stop("'featuresID' is supplied as data.frame it is necessary to supply 'featuresData' as well")
           }
           # If featuresData has been supplied, test it has the same NROW (id's) as the planning unit's ncell
-          if (NROW(sim$featuresData) != raster::ncell(sim$planningUnit))
+          if (NROW(sim$featuresData) != raster::ncell(sim$planningUnit[[paste0("Year", time(sim))]]))
             stop("'planningUnit' number of cells and 'featuresData' number of rows need to match")
 
           # Then test the names of the data.frame contain: pu, species and amount
@@ -279,12 +278,12 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
         }
 
       } else { # If the planningUnit is NOT a rasterLayer, we can have the features being a rasterLayer or data.frame.
-        if (!is(sim$planningUnit, "data.frame")) {
+        if (!is(sim$planningUnit[[paste0("Year", time(sim))]], "data.frame")) {
           stop(paste0("'planningUnit' needs to be a raster, or data.frame. Shapefiles or other formats ",
                "not yet implemented in the SpaDES module"))
         }
         # Check if the df has the needed columns
-        if (!all(c("id", "xloc", "yloc", "cost") %in% names(sim$planningUnit)))
+        if (!all(c("id", "xloc", "yloc", "cost") %in% names(sim$planningUnit[[paste0("Year", time(sim))]])))
           stop(paste0("'featuresData' data.frame needs to have: 'id' (corresponding to the ",
                       "pixel/unit id), 'xloc' and 'yloc' (corresponding to the spatial location) ",
                       "and 'cost' (numeric cost of implementation of conservation unit)"))
@@ -293,7 +292,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
         # that NROW in the data.frame of pU
         if (any(is(sim$featuresID[[paste0("Year", time(sim))]], "RasterLayer"),
                 is(sim$featuresID[[paste0("Year", time(sim))]], "RasterStack"))) {
-          if (raster::ncell(sim$featuresID[[paste0("Year", time(sim))]]) != NROW(sim$planningUnit))
+          if (raster::ncell(sim$featuresID[[paste0("Year", time(sim))]]) != NROW(sim$planningUnit[[paste0("Year", time(sim))]]))
             stop("'featuresID' number of cells and 'planningUnit' number of rows must match")
 
           # Then check if  featuresData has been supplied. If not, stop
@@ -302,7 +301,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
           }
 
           # If featuresData has been supplied, test it has the same NROW (id's) as the planning unit df
-          if (NROW(sim$featuresData) != NROW(sim$planningUnit))
+          if (NROW(sim$featuresData) != NROW(sim$planningUnit[[paste0("Year", time(sim))]]))
             stop("'planningUnit' number of rows and 'featuresData' number of rows must match")
         } else {
           if (!is(sim$featuresID[[paste0("Year", time(sim))]], "data.frame")) {
@@ -314,11 +313,11 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
           }
 
           # If featuresData has been supplied, test it has the same NROW (id's) as the planning unit df
-          if (NROW(sim$featuresData) != NROW(sim$planningUnit))
+          if (NROW(sim$featuresData) != NROW(sim$planningUnit[[paste0("Year", time(sim))]]))
             stop("'planningUnit' number of rows and 'featuresData' number of rows must match")
 
           # If featuresData has been supplied, test it has the same id's as the planning unit
-          if (NROW(sim$featuresData) != NROW(sim$planningUnit))
+          if (NROW(sim$featuresData) != NROW(sim$planningUnit[[paste0("Year", time(sim))]]))
             stop("'planningUnit' number of rows and 'featuresData' number of rows need to match")
 
           # Then test if species matches in sim$featuresData matches id in featuresID
@@ -335,7 +334,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
         }
       }
 
-      # 1b. If sim$planningUnit is a raster, and sim$planningUnitRaster is not matching it, overwrite
+      # 1b. If sim$planningUnit[[paste0("Year", time(sim))]] is a raster, and sim$planningUnitRaster is not matching it, overwrite
       tryCatch({
         raster::stack(sim$planningUnit[[paste0("Year", time(sim))]], sim$planningUnitRaster[[paste0("Year", time(sim))]])
       }, error = function(e) {
