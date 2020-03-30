@@ -557,6 +557,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                                        pattern = "solution")]
       priorityAreasList[[paste0("Year", time(sim))]] <- lapply(solutionsVector, function(solutionNumber) {
         if (P(sim)$fasterOptimization) {
+          browser()
           rasSolution <- setValues(x = sim$planningUnitRaster[[paste0("Year", time(sim))]],
                                    values = sim$priorityAreas[[paste0("Year", time(sim))]][[solutionNumber]])
         } else {
