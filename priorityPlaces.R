@@ -224,9 +224,9 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     },
     dataSanityCheck = {
       # 1. Checking data: if rasters, need to match. If data frame, need to match with featuresData
-      if (is(sim$planningUnit, "RasterLayer")) {
-        if (any(is(sim$featuresID[[paste0("Year", time(sim))]][[1]], "RasterLayer"),
-                is(sim$featuresID[[paste0("Year", time(sim))]][[1]], "RasterStack"))) {
+      if (is(sim$planningUnit[[paste0("Year", time(sim))]], "RasterLayer")) {
+        if (any(is(sim$featuresID[[paste0("Year", time(sim))]], "RasterLayer"),
+                is(sim$featuresID[[paste0("Year", time(sim))]], "RasterStack"))) {
           # Make sure all layers match, if all raster layers
           tryCatch({
             rstStk <- raster::stack(sim$planningUnit[[paste0("Year", time(sim))]], sim$featuresID[[paste0("Year", time(sim))]])
