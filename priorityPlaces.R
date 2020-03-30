@@ -421,8 +421,9 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       # for the first feature, 15 % for the second feature, 20 % for the third feature
       # 25 % for the fourth feature and 30 % of the habitat for the fifth feature
       # Assertions
-        if (length(P(sim)$targets) != NROW(sim$featuresID[[paste0("Year", time(sim))]]))
-        stop("Length of targets needs to match the length of features")
+        if (any(all(P(sim)$fasterOptimization, length(P(sim)$targets) != NROW(sim$featuresID[[paste0("Year", time(sim))]])),
+                all(!P(sim)$fasterOptimization, length(P(sim)$targets) != raster::nlayers(sim$featuresID[[paste0("Year", time(sim))]]))))
+	   stop("Length of targets needs to match the length of features")
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
       assign("conservationProblem",
              value = add_relative_targets(conservationProblem, P(sim)$targets),
