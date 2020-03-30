@@ -552,6 +552,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     definePriorityPlaces = {
       priorityAreasList <- list()
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
+      browser()
       sim$priorityAreas[[paste0("Year", time(sim))]] <- prioritizr::solve(conservationProblem)
       solutionsVector <- names(sim$priorityAreas[[paste0("Year", time(sim))]])[grep(names(sim$priorityAreas[[paste0("Year", time(sim))]]),
                                                        pattern = "solution")]
