@@ -201,7 +201,6 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     init = {
       sim$priorityAreas <- list()
       browser()
-      
 
       solver <- getSolver(P(sim)$solver)
 
