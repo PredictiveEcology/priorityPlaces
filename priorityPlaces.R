@@ -470,8 +470,8 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
         names(rasSolution) <- solutionNumber
         return(rasSolution)
       })
+      names(priorityAreasList) <- solutionsVector
       sim$priorityAreas[[paste0("Year", time(sim))]] <- priorityAreasList
-      names(sim$priorityAreas[[paste0("Year", time(sim))]]) <- solutionsVector
 
       sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "definePriorityPlaces",
                            eventPriority = .last())
