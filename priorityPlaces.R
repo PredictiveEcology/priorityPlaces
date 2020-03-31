@@ -455,12 +455,11 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "initializeSolver")
     },
     definePriorityPlaces = {
-      priorityAreasList <- list()
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
       sim$priorityAreas[[paste0("Year", time(sim))]] <- prioritizr::solve(conservationProblem)
       solutionsVector <- names(sim$priorityAreas[[paste0("Year", time(sim))]])[grep(names(sim$priorityAreas[[paste0("Year", time(sim))]]),
                                                        pattern = "solution")]
-      priorityAreasList[[paste0("Year", time(sim))]] <- lapply(solutionsVector, function(solutionNumber) {
+      priorityAreasList <- lapply(solutionsVector, function(solutionNumber) {
         if (P(sim)$fasterOptimization) {
           rasSolution <- setValues(x = sim$planningUnitRaster[[paste0("Year", time(sim))]],
                                    values = sim$priorityAreas[[paste0("Year", time(sim))]][[solutionNumber]])
@@ -470,7 +469,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
         names(rasSolution) <- solutionNumber
         return(rasSolution)
       })
-      sim$priorityAreas[[paste0("Year", time(sim))]] <- priorityAreasList[[paste0("Year", time(sim))]]
+      sim$priorityAreas[[paste0("Year", time(sim))]] <- priorityAreasList
       names(sim$priorityAreas[[paste0("Year", time(sim))]]) <- solutionsVector
 
       sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "definePriorityPlaces",
