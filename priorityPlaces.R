@@ -455,9 +455,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "initializeSolver")
     },
     definePriorityPlaces = {
-      if (time(sim) == 2100) browser()
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
-      # sim$priorityAreas[[paste0("Year", time(sim))]] <- prioritizr::solve(conservationProblem)
       solved <- prioritizr::solve(conservationProblem)
       solutionsVector <- names(solved)[grep(names(solved), pattern = "solution")]
       priorityAreasList <- lapply(solutionsVector, function(solutionNumber) {
