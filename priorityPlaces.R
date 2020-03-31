@@ -456,15 +456,15 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     },
     definePriorityPlaces = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
-      sim$priorityAreas[[paste0("Year", time(sim))]] <- prioritizr::solve(conservationProblem)
-      solutionsVector <- names(sim$priorityAreas[[paste0("Year", time(sim))]])[grep(names(sim$priorityAreas[[paste0("Year", time(sim))]]),
-                                                       pattern = "solution")]
+      # sim$priorityAreas[[paste0("Year", time(sim))]] <- prioritizr::solve(conservationProblem)
+      solved <- prioritizr::solve(conservationProblem)
+      solutionsVector <- names(solved)[grep(names(solved), pattern = "solution")]
       priorityAreasList <- lapply(solutionsVector, function(solutionNumber) {
         if (P(sim)$fasterOptimization) {
           rasSolution <- setValues(x = sim$planningUnitRaster[[paste0("Year", time(sim))]],
-                                   values = sim$priorityAreas[[paste0("Year", time(sim))]][[solutionNumber]])
+                                   values = solved[[solutionNumber]])
         } else {
-          rasSolution <- sim$priorityAreas[[paste0("Year", time(sim))]][[solutionNumber]]
+          rasSolution <- solved[[solutionNumber]]
         }
         names(rasSolution) <- solutionNumber
         return(rasSolution)
