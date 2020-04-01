@@ -53,28 +53,61 @@ BiocManager::install("lpsymphony")
 library(SpaDES.core)
 library(SpaDES.tools)
 
-setPaths(modulePath = file.path(dirname(getwd())))
-getPaths() # shows where the 4 relevant paths are
+library("raster")
+library("reproducible")
+library("SpaDES.core")
+library("SpaDES.tools")
+library("usefun")
+library("googledrive")
+library("data.table")
 
-times <- list(start = 0, end = 0)
+drive_auth("tati.micheletti@gmail.com")
+# scratchDir <- file.path("/mnt/tmp")
+
+options(reproducible.cacheSaveFormat = "rds")
+
+setPaths(modulePath = file.path(getwd(), "modules"),
+         inputPath = file.path(getwd(), "inputs"),
+         cachePath = file.path(getwd(), "cache"),
+         outputPath = file.path(getwd(), "outputs"))
+getPaths() # shows where the 4 relevant paths are
+options(reproducible.showSimilar = FALSE)
+
+times <- list(start = 2011, end = 2100)
 
 parameters <- list(
-  priorityPlaces = list(".useCache" = TRUE,
+  priorityPlaces = list(".useCache" = FALSE,
+                        "stepInterval" = 89,
                         "binaryDecision" = FALSE,
                         "constraintType" = list(
-                          add_locked_in_constraints = list(locked_in = c(50, 53, 52, 51)),
-                          # add_feature_contiguity_constraints = NULL,
-                          # add_neighbor_constraints = list(k = 2),
-                          add_locked_out_constraints = list(locked_out = c(3, 4, 13, 14))),
-                        "fasterOptimization" = FALSE,
+                          #add_locked_in_constraints = list(locked_in = c(50, 53, 52, 51)),
+                          #add_feature_contiguity_constraints = NULL,
+                          #add_neighbor_constraints = list(k = 2),
+                          #add_locked_out_constraints = list(locked_out = c(3, 4, 13, 14))
+                        ),
+                        "fasterOptimization" = TRUE,
                         "firstFeasible" = FALSE,
-                        "penalty" = 0.1,
-                        "targets" = c(0.35, 0.1, 0.2)
+                        "penalty" = NULL, ## used to penalize highly fragmented solutions
+                        "presolve" = 2,
+                        "solutions" = 1, ## converges on a single solution already
+                        #"solver" = "rsymphony", ## change accordingly
+                        "targets" = c(0.15, 0.2), ## streams 1, 2
+                        "timeLimit" = 1800,
+                        "verbose" = TRUE,
+                        ".plotInitialTime" = NA
   )
 )
 
+fold <- "C:/Users/Tati/Google Drive/Postdoc PFC-UBC/NWT 2019/G&C_Contract/priorityPlacesPreliminaryResults/rawNoWeight/"
+featuresID_2011 <- stack(file.path(fold, "featuresID_2011_noWeight.grd"))
+featuresID_2100 <- stack(file.path(fold, "featuresID_2100_noWeight.grd"))
+planningUnit_2011 <- raster(file.path(fold, "planningUnit_2011_noWeight.tif"))
+planningUnit_2100 <- raster(file.path(fold, "planningUnit_2100_noWeight.tif"))
+
 modules <- list("priorityPlaces")
-objects <- list()
+objects <- list(
+  
+)
 inputs <- list()
 outputs <- list()
 
