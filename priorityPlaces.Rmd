@@ -57,7 +57,7 @@ library("raster")
 library("reproducible")
 library("SpaDES.core")
 library("SpaDES.tools")
-library("usefun")
+library("usefulFuns")
 library("googledrive")
 library("data.table")
 
