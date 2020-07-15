@@ -9,10 +9,19 @@ editor_options:
 
 # Overview
 
-Provide an overview of what the module does / how to use the module.
+To understand the relative effects of climate-driven landscape change on several of Canada’s wildlife species, and identify spatially explicit areas where boreal refugia may provide the best opportunity for species conservation (i.e. priority places), we forecasted 21st century species-habitat relationships across the Taiga Plains of the Northwest Territories, Canada. We paired these regionally derived and species specific models to projected and integrated climate-sensitive vegetation and wildfire models while assuming anthropogenic features are constant. Our process and models were integrated in SpaDES, a novel suite of R packages for discrete event spatial simulation and reproducible science (McIntire and Chubaty, 2019). SpaDES enables the unique ability to nimbly integrate models from diverse ecological disciplines to better inform ecological decisions; such a framework aims to promote the identification of priority areas for resource protection, and ultimately biodiversity conservation, through ecological forecasts.  
 
-Module documentation should be written so that others can use your module.
-This is a template for module documentation, and should be changed to reflect your module.
+Given limited funding, time, and contrasting land use objectives, prioritization of multi-species management is a critical component of Canadian conservation. Prioritization of specific species to be included in multi-species management, as well as the ideal locations for conducting such management, has received increased attention both nationally (Drever et al., 2019) and internationally (Early and Thomas, 2007). However, many of these management regimes lack the ability to fully encompass anticipated, and integrated, forecasts of landscape and climate change on species conservation. Using the prioritizr package (Hanson et al., 2020) in R, we outline 5 priority “streams” for multi-species management, and combine these streams with dynamic models of landscape and climate change projections to identify spatially explicit areas of consistently high priority landscape for multi-species conservation across the 21st century.  
+
+We focused our objective on determining the spatial prioritization of boreal caribou in combination with multiple boreal bird species across the Taiga Plains ecozone of the Northwest Territories. As requested (Samuel Haché, pers comm.), we outlined five streams of species combinations for conservation prioritization that will be used in the next iteration of the model. For the present report, 75 of the 88 species were simulated, including boreal caribou and 74 bird species.
+
+Stream 1 contains one threatened mammal species, stream 2 contains two boreal bird Species at Risk for which we currently do not have abundance models - this stream currently lacks data within our simulations. Stream 3 contains a combination of seven boreal bird species some of which are at risk and some of which are not, stream 4 contains 20 migratory boreal bird species not yet listed as at risk, and stream 5 contains 61 other boreal bird species, totalling 88 species.
+
+The main focus of spatial optimization for defining priority areas is on the monetary cost of conserving areas. In the present report, however, our intent was to assess if there are areas of relative increased importance for multi-species conservation, instead of areas that have lower monetary costs to conserve. Therefore, within the priorityPlaces modules, instead of setting monetary costs for the prioritization of important places we implemented the cost metric as a measure of biodiversity - areas with lower forecasted bird diversity have a higher inherent cost to conservation, whereas areas with higher forecasted bird diversity have a lower inherent cost. This implementation does not impose a direct tradeoff between bird and caribou conservation prioritizations as areas with high caribou value (i.e. high forecasted caribou RSF values) can independently also have high bird forecasted diversity. Within the current implementation of the priorityPlaces module, it is possible to use two diversity indices: the Shannon Diversity Index (the default, and the one used in the current report) or the Inverse Simpson Index. 
+
+Moreover, to ensure the priorityPlaces module is adaptable to changing management priorities, we created a weighting system for each of the above species streams that compose the biodiversity cost layer. This system ensures that if priority/high weight needs to be placed on one or more of the above streams, or altered due to changing management priorities, the module is adaptable to meet these needs.
+
+# Usage
 
 ## Solver information
 
@@ -53,28 +62,61 @@ BiocManager::install("lpsymphony")
 library(SpaDES.core)
 library(SpaDES.tools)
 
-setPaths(modulePath = file.path(dirname(getwd())))
-getPaths() # shows where the 4 relevant paths are
+library("raster")
+library("reproducible")
+library("SpaDES.core")
+library("SpaDES.tools")
+library("usefulFuns")
+library("googledrive")
+library("data.table")
 
-times <- list(start = 0, end = 0)
+drive_auth("tati.micheletti@gmail.com")
+# scratchDir <- file.path("/mnt/tmp")
+
+options(reproducible.cacheSaveFormat = "rds")
+
+setPaths(modulePath = file.path(getwd(), "modules"),
+         inputPath = file.path(getwd(), "inputs"),
+         cachePath = file.path(getwd(), "cache"),
+         outputPath = file.path(getwd(), "outputs"))
+getPaths() # shows where the 4 relevant paths are
+options(reproducible.showSimilar = FALSE)
+
+times <- list(start = 2011, end = 2100)
 
 parameters <- list(
-  priorityPlaces = list(".useCache" = TRUE,
+  priorityPlaces = list(".useCache" = FALSE,
+                        "stepInterval" = 89,
                         "binaryDecision" = FALSE,
                         "constraintType" = list(
-                          add_locked_in_constraints = list(locked_in = c(50, 53, 52, 51)),
-                          # add_feature_contiguity_constraints = NULL,
-                          # add_neighbor_constraints = list(k = 2),
-                          add_locked_out_constraints = list(locked_out = c(3, 4, 13, 14))),
-                        "fasterOptimization" = FALSE,
+                          #add_locked_in_constraints = list(locked_in = c(50, 53, 52, 51)),
+                          #add_feature_contiguity_constraints = NULL,
+                          #add_neighbor_constraints = list(k = 2),
+                          #add_locked_out_constraints = list(locked_out = c(3, 4, 13, 14))
+                        ),
+                        "fasterOptimization" = TRUE,
                         "firstFeasible" = FALSE,
-                        "penalty" = 0.1,
-                        "targets" = c(0.35, 0.1, 0.2)
+                        "penalty" = NULL, ## used to penalize highly fragmented solutions
+                        "presolve" = 2,
+                        "solutions" = 1, ## converges on a single solution already
+                        #"solver" = "rsymphony", ## change accordingly
+                        "targets" = c(0.15, 0.2), ## streams 1, 2
+                        "timeLimit" = 1800,
+                        "verbose" = TRUE,
+                        ".plotInitialTime" = NA
   )
 )
 
+fold <- "C:/Users/Tati/Google Drive/Postdoc PFC-UBC/NWT 2019/G&C_Contract/priorityPlacesPreliminaryResults/rawNoWeight/"
+featuresID_2011 <- stack(file.path(fold, "featuresID_2011_noWeight.grd"))
+featuresID_2100 <- stack(file.path(fold, "featuresID_2100_noWeight.grd"))
+planningUnit_2011 <- raster(file.path(fold, "planningUnit_2011_noWeight.tif"))
+planningUnit_2100 <- raster(file.path(fold, "planningUnit_2100_noWeight.tif"))
+
 modules <- list("priorityPlaces")
-objects <- list()
+objects <- list(
+  
+)
 inputs <- list()
 outputs <- list()
 
@@ -106,8 +148,7 @@ Write what is saved.
 
 ## Input data
 
-How to obtain input data, and a description of the data required by the module.
-If `sourceURL` is specified, `downloadData("priorityPlaces", "path/to/modules/dir")` may be sufficient.
+Sample input data is hosted online and automatically downloaded and treated in the module.
 
 ```{r moduleInputs}
 df_inputs <- moduleInputs("priorityPlaces", "..")
@@ -116,8 +157,6 @@ knitr::kable(df_inputs)
 
 ## Output data
 
-Description of the module outputs.
-
 ```{r moduleOutputs}
 df_outputs <- moduleOutputs("priorityPlaces", "..")
 knitr::kable(df_outputs)
@@ -125,4 +164,4 @@ knitr::kable(df_outputs)
 
 # Links to other modules
 
-Describe any anticipated linkages to other modules.
+This module can be linked to priorityPlaces_DataPrep, LandR, birdsNWT, CaribouRSF, fireSense, and many others.
