@@ -119,7 +119,7 @@ defineModule(sim, list(
                     paste0("logical should information be printed while ",
                            "solving optimization problems?"))
   ),
-  inputObjects = bind_rows(
+  inputObjects = bindrows(
     expectsInput(objectName = "featuresID", objectClass = "list",
                  desc = paste0("This is a list of rasterStacks of the features to be ",
                                "assessed: caribouRSF, specific birds density, species richness, etc"),
@@ -146,7 +146,7 @@ defineModule(sim, list(
                                "to be NA"),
                  sourceURL = NA)
   ),
-  outputObjects = bind_rows(
+  outputObjects = bindrows(
     createsOutput(objectName = "featuresData", objectClass = "data.frame",
                   desc = paste0("Only created if featuresID if P(sim)$fasterOptimization is TRUE",
                                 "'species': integer feature identifier (i.e. 'id' in featuresID)",
