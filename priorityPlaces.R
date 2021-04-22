@@ -17,7 +17,8 @@ defineModule(sim, list(
   timeunit = "year",
   citation = list("citation.bib"),
   documentation = deparse(list("README.txt", "priorityPlaces.Rmd")),
-  reqdPkgs = list("crayon", "parallel", "prioritizr", "raster"
+  reqdPkgs = list("crayon", "parallel", "prioritizr", "raster", "slam", 
+                  "gurobi"
                   ## "slam", "gurobi" ## slam and gurobi are best but OPTIONAL
                   ## TODO: how to add Rsymphony and lpsymphony as optional packages?
   ),
@@ -96,7 +97,7 @@ defineModule(sim, list(
     defineParameter("solutions", "numeric", 10, NA, NA,
                     paste0("integer number of attempts to generate different solutions. ",
                            "Defaults to 10")),
-    defineParameter("solver", "character", NULL, NA, NA,
+    defineParameter("solver", "character", "lpsymphony", NA, NA,
                     paste("Which optimizer/solver to use.",
                           "One of 'gurobi', 'rsymphony', 'lpsymphony', or NULL.",
                           "If NULL, attempt to figure out best solver to use. See ?prioritizr::solvers.")),
@@ -117,7 +118,10 @@ defineModule(sim, list(
                            "Both birds and caribou NEED to match!")),
     defineParameter("verbose", "logical", FALSE, NA, NA,
                     paste0("logical should information be printed while ",
-                           "solving optimization problems?"))
+                           "solving optimization problems?")),
+    defineParameter("experimentName", "character", "default", NA, NA,
+                    paste0("Name to identify the simulation in the filenames",
+                           "Defaults to 'default'."))
   ),
   inputObjects = bindrows(
     expectsInput(objectName = "featuresID", objectClass = "list",
@@ -174,7 +178,16 @@ defineModule(sim, list(
                                 " showing optimal/near optimal areas")),
     createsOutput(objectName = "planningUnitRaster", objectClass = "RasterLayer",
                   desc = paste0("Planning unit raster is the spatial area (study area) in raster format. ",
-                                "Serves as template raster for solutions"))
+                                "Serves as template raster for solutions")),
+    createsOutput(objectName = "conservationUnitsSizes", objectClass = "List",
+                  desc = paste0("List of: (i) raster indicating the units clumped together. ",
+                                "(ii) table with sizes of contiguous conservation ",
+                                "units (iii) table with total area in ha and km2 that was selected",
+                                " and (iv) a table pointing out the overlap between protected areas",
+                                "and suggested areas for conservation",
+                                " With this result it is possible to detect very ",
+                                "important areas for conservation (very small",
+                                " units that with a huge penalty are still being selected)"))
   )
 ))
 
@@ -204,7 +217,9 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "initializeSolver")
       sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "definePriorityPlaces",
                            eventPriority = .last())
-      sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "priorityPlaces", "plot",
+      sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "plot",
+                           eventPriority = .last())
+      sim <- scheduleEvent(sim, time(sim), "priorityPlaces", "calculateAreaSizes",
                            eventPriority = .last())
 
     },
@@ -375,7 +390,8 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
              value = add_boundary_penalties(conservationProblem,
                                             penalty = P(sim)$penalty,
                                             data = connectivity_matrix(sim$planningUnitRaster[[paste0("Year", time(sim))]],
-                                                                       sim$importantAreas[[paste0("Year", time(sim))]])),
+                                                                       sim$importantAreas[[paste0("Year", time(sim))]]),
+                                            edge_factor = 0.5),
              envir = sim$problemEnv)
 
       if (!is.null(P(sim)$penalty))
@@ -403,10 +419,15 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
         # contain a set number of solutions that are nearest to optimality (e.g. the top 10 solutions
         # nearest to optimality). This method is the fastest for generating a portfolio of solutions,
         # but it requires that the Gurobi optimization solver to be specified for solving problems.
-        assign("conservationProblem", value = add_pool_portfolio(conservationProblem,
-                                                                 method = 2,
-                                                                 number_solutions = P(sim)$solutions),
-               envir = sim$problemEnv)
+        if (P(sim)$solutions > 1){
+          assign("conservationProblem", value = add_gap_portfolio(conservationProblem,
+                                                                  number_solutions = P(sim)$solutions),
+                 envir = sim$problemEnv)        
+        } else {
+          assign("conservationProblem", value = add_top_portfolio(conservationProblem,
+                                                                  number_solutions = P(sim)$solutions),
+                 envir = sim$problemEnv)
+        }
       } else {
         # Generate a portfolio of solutions by randomly reordering the data prior to attempting to
         # solve the problem. If the Gurobi optimization solver is not available, this method is the
@@ -456,6 +477,15 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     },
     definePriorityPlaces = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
+      # For some reason, the portfolio might not be added
+      if (P(sim)$solutions > 1){
+        if (!"GapPortfolio" %in% attributes(conservationProblem$portfolio)[["class"]]){
+          message(crayon::red(paste0("Portfolio has not been correctly added. Trying fix")))
+          assign("conservationProblem", value = add_gap_portfolio(conservationProblem,
+                                                                  number_solutions = P(sim)$solutions),
+                 envir = sim$problemEnv)
+        }
+      }
       solved <- prioritizr::solve(conservationProblem)
       solutionsVector <- names(solved)[grep(names(solved), pattern = "solution")]
       priorityAreasList <- lapply(solutionsVector, function(solutionNumber) {
@@ -470,11 +500,87 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       })
       names(priorityAreasList) <- solutionsVector
       sim$priorityAreas[[paste0("Year", time(sim))]] <- priorityAreasList
+      writeRaster(x = stack(sim$priorityAreas[[paste0("Year", time(sim))]]), 
+                  filename = file.path(Paths[["outputPath"]], paste0(P(sim)$experimentName, 
+                                                                     "_solutions_Year", time(sim))), 
+                  format = "GTiff", overwrite = TRUE)
 
       sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "definePriorityPlaces",
                            eventPriority = .last())
     },
+    calculateAreaSizes = { 
+      PA <- raster::stack(sim$priorityAreas[[paste0("Year", time(sim))]]) # Stack all solutions
+      if (nlayers(PA) > 1){
+        PA <- calc(PA, mean)
+      } else {
+        PA <- PA[[1]]
+      }
+      # (i)
+      message(paste0("Clumping priority conservation areas for year ", 
+                     time(sim)," to identify area sizes"))
+      
+      clumpSol <- raster::clump(PA, directions = 8, gaps = TRUE)
+      writeRaster(x = clumpSol, 
+                  filename = file.path(Paths$outputPath, 
+                                       paste0(P(sim)$experimentName,
+                                              "_clumpedSolutions_Year", time(sim))), 
+                  format = "GTiff", overwrite = TRUE)
+      # (ii)
+      DTclump <- data.table(pixelID = 1:ncell(clumpSol),
+                            groups = getValues(clumpSol))
+      DTclump[, numberPix := .N, by = "groups"]
+      
+      qs::qsave(x = DTclump, file = file.path(Paths$outputPath, 
+                                          paste0(P(sim)$experimentName,
+                                                 "_groupedAreas_Year", time(sim), ".qs")))
+      # (iii)
+      DTclumpUnique <- unique(na.omit(DTclump))
+      totArea <- data.table(nPixels = sum(DTclumpUnique$numberPix),
+                            areaHa = sum(DTclumpUnique$numberPix)*6.25,
+                            areaKm2 = sum(DTclumpUnique$numberPix)*6.25*0.01)
+      
+      qs::qsave(x = totArea, file = file.path(Paths$outputPath, 
+                                          paste0(P(sim)$experimentName,
+                                            "_totalAreaProtected_Year", time(sim), ".qs")))
+      
+      sim$conservationUnitsSizes <- list(contiguousAreasRas = clumpSol,
+                                         groupedAreasDT = DTclump,
+                                         totalAreaDT = totArea)
+      if (!is.null(sim$protectedAreas)){
+        # (iv) Check the overlap between the proposed areas and the protected areas
+        # Extract the pixels from the protected areas
+        pASF <- st_as_sf(sim$protectedAreas)
+        pASF$fieldID <- 1:NROW(pASF)
+        pF <- fasterize::fasterize(sf = pASF, raster = PA, 
+                                   field = "fieldID")
+        tableProportions <- rbindlist(lapply(na.omit(unique(pF[])), function(paID){
+          # Get the name for that id
+         nm <- as.character(pASF[pASF$fieldID == paID, "NAME_E"])[1]
+         totalAreaSelectedInPix <- sum(PA[pF[] == paID], na.rm = TRUE)
+         totalAreaInPix <- sum(pF[] == paID, na.rm=TRUE)
+         
+         # Convert to ha
+         totalAreaSelectedInHa <- totalAreaSelectedInPix*6.25
+         totalAreaInHa <- totalAreaInPix*6.25
+         
+         DT <- data.table(NAME_E = nm,
+                          totalAreaPAinKm2 = round(totalAreaInHa*0.01, digits = 3),
+                          totalAreaSelectedinKm2 = round(totalAreaSelectedInHa*0.01, digits = 3),
+                          percAreaSelected = round(totalAreaSelectedInHa/totalAreaInHa, digits = 3))
+         return(DT)
+        }))
+        qs::qsave(x = tableProportions, file = file.path(Paths$outputPath, 
+                                                paste0(P(sim)$experimentName,
+                                                       "_protectedAreaOverlap_Year", time(sim), ".qs")))
+        # Just append to the table of protected area
+        sim$conservationUnitsSizes[["protectedAreaOverlap"]] <- tableProportions
+      }
+
+      sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "calculateAreaSizes",
+                           eventPriority = .last())
+    },
     plot = {
+      clearPlot()
       quickPlot::Plot(sim$priorityAreas[[paste0("Year", time(sim))]])
       sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "priorityPlaces", "plot",
                            eventPriority = .last())
@@ -504,7 +610,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
   }
 
   if (!all(is(sim$planningUnit, "list"), is(sim$planningUnit[[1]], "RasterLayer")))
-    stop("planningUnit must be a list of rasters")
+    stop("planningUnit must be a list of rasters per years")
     
   sim$planningUnitRaster <- sim$planningUnit
   
