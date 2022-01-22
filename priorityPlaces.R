@@ -37,6 +37,11 @@ defineModule(sim, list(
                           "and time are not relevant")),
     defineParameter("stepInterval", "numeric", 1, NA, NA,
                     "This describes the simulation time interval between events."),
+    defineParameter("areaToConserve", "numeric", NULL, NA, NA,
+                    paste0("This is the equivalent of the budget (cost of each pixel to conserve * ",
+                           " total area). In the case of this module, it might be the size of ", 
+                           "each pixel * the total area to be conserved. Needs to be passed if ",
+                           "solutionObjective == optimizeForArea")),
     defineParameter("binaryDecision", "logical", FALSE, NA, NA,
                     paste("Add a binary decision to a conservation planning problem.",
                           "This is the classic decision of either prioritizing or not prioritizing",
@@ -119,6 +124,12 @@ defineModule(sim, list(
     defineParameter("verbose", "logical", FALSE, NA, NA,
                     paste0("logical should information be printed while ",
                            "solving optimization problems?")),
+    defineParameter("solutionObjective", "character", "optimizeForFeatures", NA, NA,
+                    paste0("Two possible: optimizeForFeatures (equivalent to add_min_set_objective()) ",
+                           "or optimizeForArea (equivalent to add_max_utility_objective(budget = P(sim)$areaToConserve)).",
+                           "Future development of this module could consist in adding the following ",
+                           "objectives: Maximum features objective, Minimum largest shortfall objective, ",
+                           "etc. (https://prioritizr.net/articles/prioritizr.html)")),
     defineParameter("experimentName", "character", "default", NA, NA,
                     paste0("Name to identify the simulation in the filenames",
                            "Defaults to 'default'."))
@@ -198,8 +209,12 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
   switch(
     eventType,
     init = {
+      
+      #Assertion
+      if (all(P(sim)$solutionObjective == "optimizeForArea", is.null(P(sim)$areaToConserve))){
+        stop("Please provide areaToConserve when passing solutionObjective = optimizeForArea")
+      }
       sim$priorityAreas <- list()
-
       solver <- getSolver(P(sim)$solver)
 
       # schedule future event(s)
@@ -297,7 +312,7 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
 
       # Converting threads from AUTO to optimal number of threads:
       if (P(sim)$threads == "AUTO")
-        params(sim)$priorityPlaces$threads <- floor(P(sim)$nCores)
+        params(sim)$priorityPlaces$threads <- floor(P(sim)$nCores * 0.9)
 
       # Schedule future events
       sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "dataSanityCheck")
@@ -324,20 +339,28 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
       # (Ball et al. 2009). For example, we can add a minimum set objective to a problem using the
       # following code. It is possible to add more objectives with time.
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
-      assign("conservationProblem", value = add_min_set_objective(conservationProblem),
+      if (P(sim)$solutionObjective == "optimizeForFeatures"){
+              assign("conservationProblem", value = add_min_set_objective(conservationProblem),
              envir = sim$problemEnv)
+      } else {
+        if (P(sim)$solutionObjective == "optimizeForArea"){
+          assign("conservationProblem", value = add_max_utility_objective(conservationProblem, 
+                                                                          budget = P(sim)$areaToConserve),
+                 envir = sim$problemEnv)
+        }
+      }
+
 
       sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "setObjectives")
     },
     setTargets = {
+      if (P(sim)$solutionObjective == "optimizeForFeatures"){
       # Rules/Targets:
       # create a problem with targets which specify that we need 10 % of the habitat
       # for the first feature, 15 % for the second feature, 20 % for the third feature
       # 25 % for the fourth feature and 30 % of the habitat for the fifth feature
       # Assertions
-      nFeat <- ifelse(P(sim)$fasterOptimization, 
-                      NROW(sim$featuresID[[paste0("Year", time(sim))]]),
-                      raster::nlayers(sim$featuresID[[paste0("Year", time(sim))]]))
+      nFeat <- if (P(sim)$fasterOptimization) NROW(sim$featuresID[[paste0("Year", time(sim))]]) else raster::nlayers(sim$featuresID[[paste0("Year", time(sim))]])
         if (any(all(P(sim)$fasterOptimization, length(P(sim)$targets) != nFeat),
                 all(!P(sim)$fasterOptimization, length(P(sim)$targets) != nFeat)))
 	   stop("Length of targets needs to match the length of features")
@@ -347,12 +370,23 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
              envir = sim$problemEnv)
 
       sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "setTargets")
+      } else {
+        print("P(sim)$solutionObjective != optimizeForFeatures, skipping setTargets")
+      }
     },
     addConstraints = {
       lapply(names(P(sim)$constraintType), function(const) {
+        print(paste0("Add ", const, " to conservationProblem..."))
         conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
         fun <- get(const)
-        args <- P(sim)$constraintType[[const]]
+        if (const == "add_locked_in_constraints"){
+          args <- list()
+          args$locked_in <- P(sim)$constraintType[[const]]
+        } else {
+          args <- P(sim)$constraintType[[const]]
+        }
+        if (is.na(args))
+          args <- list()
         args$x <- conservationProblem
         tryCatch({
           assign("conservationProblem", value = do.call(fun, args = args),
@@ -369,11 +403,12 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
         sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "addConstraints")
     },
     definePenalties = {
-      if (length(sim$importantAreas) == 1){
+      
+      conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
+      
+      if (!is.null(sim$importantAreas)){
         sim$importantAreas <- list(sim$importantAreas[[1]])
         names(sim$importantAreas) <- paste0("Year", time(sim))
-      }
-      conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
       tryCatch({
         raster::stack(sim$planningUnitRaster[[paste0("Year", time(sim))]], sim$importantAreas[[paste0("Year", time(sim))]])
       }, error = function(e) {
@@ -393,6 +428,14 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
                                                                        sim$importantAreas[[paste0("Year", time(sim))]]),
                                             edge_factor = 0.5),
              envir = sim$problemEnv)
+      } else {
+        assign("conservationProblem",
+               value = add_boundary_penalties(conservationProblem,
+                                              penalty = P(sim)$penalty,
+                                              edge_factor = 0.5),
+               envir = sim$problemEnv)
+      }
+      
 
       if (!is.null(P(sim)$penalty))
         sim <- scheduleEvent(sim, time(sim) + P(sim)$stepInterval, "priorityPlaces", "definePenalties")
@@ -400,6 +443,14 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     defineDecisionType = {
       conservationProblem <- get("conservationProblem", envir = sim$problemEnv)
       if (P(sim)$binaryDecision) {
+        if (!is.null(P(sim)$penalty)) warning(paste0("Parameter 'penalties' is not NULL.",
+                                                     "Setting the decision to binary might increase ",
+                                                     "running time exponentially and/or return ",
+                                                     "non-feasible solutions. Make sure to set ",
+                                                     "appropriate time limits with the parameter ",
+                                                     "timeLimit and/or set binaryDecision to",
+                                                     " FALSE."), 
+                                              immediate. = TRUE)
         assign("conservationProblem", value = add_binary_decisions(conservationProblem),
                envir = sim$problemEnv)
       } else {
@@ -614,19 +665,20 @@ doEvent.priorityPlaces = function(sim, eventTime, eventType) {
     
   sim$planningUnitRaster <- sim$planningUnit
   
-  if (!is.null(P(sim)$penalty)) {
+    if (!is.null(P(sim)$penalty)) {
     if (!suppliedElsewhere("importantAreas", sim = sim)) {
       if (!is(sim$planningUnit[[1]], "RasterLayer"))
         stop(paste0("If planningUnit is NULL, or not a RasterLayer, and penalty is not NULL ",
                     "you need to provide importantAreas"))
-      sim$importantAreas <- sim$planningUnitRaster
-      sim$importantAreas <- lapply(sim$importantAreas, function(ras){
-        ras[] <- NA
-        ras[runif(10, 1:ncell(sim$planningUnit))] <- 1
-        return(ras)
-      })
+      sim$importantAreas <- NULL
+      # sim$importantAreas <- lapply(sim$importantAreas, function(ras){
+      #   ras[] <- NA
+      #   ras[runif(10, 1:ncell(sim$planningUnit))] <- 1
+      #   return(ras)
+      # })
     }
   }
+  
   if (!suppliedElsewhere("featuresID", sim = sim)) {
     warning("featuresID was not supplied. Using dummy data", immediate. = TRUE)
     ras <- raster(ncol = 10, nrow = 10, xmn = -3, xmx = 3, ymn = -3, ymx = 3)
