@@ -12,7 +12,7 @@ defineModule(sim, list(
   authors = c(person("Tati", "Micheletti", email = "tati.micheletti@gmail.com", role = c("aut", "cre")),
               person("Alex", "Chubaty", email = "achubaty@for-cast.ca", role = "aut")),
   childModules = character(0),
-  version = list(SpaDES.core = "1.0.0.9000", priorityPlaces = "0.0.0.9009"),
+  version = list(SpaDES.core = "1.0.0.9000", priorityPlaces = "1.0.0"),
   timeframe = as.POSIXlt(c(NA, NA)),
   timeunit = "year",
   citation = list("citation.bib"),
